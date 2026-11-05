@@ -29,9 +29,11 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;
 h1{margin:0;font-size:1.9rem;font-weight:700;letter-spacing:.01em;line-height:1.2}
 h1 span{display:block;font-size:1.05rem;font-weight:500;color:var(--muted);margin-top:4px}
 
-.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px}
+.fstack{display:flex;flex-direction:column;gap:8px}
+#flPlace{width:230px}
 .toolbar .grow{flex:1 1 280px;max-width:420px}
-.count{color:var(--muted);margin-left:4px}
+.count{color:var(--muted);margin-left:4px;line-height:44px}
 .spacer{flex:1}
 
 input,select,textarea{font:inherit;color:inherit;background:#fcfdf8;border:1.5px solid var(--line);
@@ -164,8 +166,13 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
   <div id="viewStock">
   <div class="toolbar">
     <input id="q" class="grow" type="search" placeholder="Search code, name, origin, notes" aria-label="Search stock">
-    <select id="flCat" aria-label="Filter by category"></select>
     <select id="flApp" aria-label="Filter by appearance"></select>
+    <div class="fstack">
+      <select id="flSub" aria-label="Filter by sub category" hidden></select>
+      <select id="flCat" aria-label="Filter by category"></select>
+    </div>
+    <select id="flGift" aria-label="Filter by giftable"></select>
+    <input id="flPlace" type="search" placeholder="Place No. or Place Code" aria-label="Search by Place No. or Place Code">
     <select id="flStatus" aria-label="Filter by storage status"></select>
     <span class="count" id="count"></span>
     <span class="spacer"></span>
@@ -384,6 +391,16 @@ function resolvePlaceCode(places, raw){
   if (!free) return {ok:false, error:'All 90 Place No. are in use. Free one on the Dashboard first.'};
   return {ok:true, no:String(free.place_no), code, isNew:true};
 }
+// Place search: digits find that Place No.; a full code (PR 1, ksr2) finds that code; letters find codes that start with them.
+function placeMatches(e, query){
+  const q = String(query || '').normalize('NFKC').trim();
+  if (!q) return true;
+  if (/^\d+$/.test(q)) return String(e.placeNo) === String(Number(q));
+  const full = placeCodeNorm(q);
+  const code = String(e.placeCode || '').toUpperCase();
+  if (full) return code === full;
+  return code.replace(/\s+/g, '').startsWith(q.toUpperCase().replace(/\s+/g, ''));
+}
 /*LOGIC_END*/
 
 const $ = s => document.querySelector(s);
@@ -485,6 +502,7 @@ const opt = (v,l) => '<option value="' + esc(v) + '">' + esc(l == null ? v : l) 
 $('#flCat').innerHTML = opt('','All categories') + CATS.map(c => opt(c)).join('');
 $('#flApp').innerHTML = opt('','All appearances') + Object.keys(TYPES).map(k => opt(k, TYPES[k].zh)).join('');
 $('#flStatus').innerHTML = opt('','All statuses') + STATUS.map(s => opt(s)).join('');
+$('#flGift').innerHTML = opt('','All giftable') + GIFT.map(g => opt(g)).join('');
 $('#fType').innerHTML = opt('','Select') + Object.keys(TYPES).map(k => opt(k)).join('');
 $('#fCategory').innerHTML = opt('','Select') + CATS.map(c => opt(c)).join('');
 $('#fGiftable').innerHTML = GIFT.map(g => opt(g)).join('');
@@ -494,6 +512,9 @@ $('#fStatus').innerHTML = STATUS.map(s => opt(s)).join('');
 function matches(e){
   if ($('#flCat').value && e.category !== $('#flCat').value) return false;
   if ($('#flApp').value && e.prefix !== $('#flApp').value) return false;
+  if ($('#flSub').value && e.subCategory !== $('#flSub').value) return false;
+  if ($('#flGift').value && e.giftable !== $('#flGift').value) return false;
+  if (!placeMatches(e, $('#flPlace').value)) return false;
   if ($('#flStatus').value && e.status !== $('#flStatus').value) return false;
   const q = $('#q').value.trim().toLowerCase();
   if (!q) return true;
@@ -682,7 +703,16 @@ $('#rows').addEventListener('click', async ev => {
   await reload(); toast('Deleted ' + e.code);
 });
 
-['q','flCat','flApp','flStatus'].forEach(id => $('#' + id).addEventListener('input', render));
+// Sub. Category filter appears once a Category is chosen and lists that Category's choices.
+function fillSubFilter(){
+  const cat = $('#flCat').value, sel = $('#flSub'), keep = sel.value;
+  const names = cat ? subCats.filter(s => s.category === cat).map(s => s.name) : [];
+  sel.hidden = !cat;
+  sel.innerHTML = opt('', 'All sub categories') + names.map(n => opt(n)).join('');
+  sel.value = names.includes(keep) ? keep : '';
+}
+$('#flCat').addEventListener('input', () => { $('#flSub').value = ''; fillSubFilter(); });
+['q','flApp','flCat','flSub','flGift','flPlace','flStatus'].forEach(id => $('#' + id).addEventListener('input', render));
 
 /* ---------- helpers ---------- */
 function ask(msg, yesLabel){
@@ -729,6 +759,7 @@ async function loadLists(){
   if (!a.error) subCats = a.data;
   if (!b.error) places = b.data;
   fillPlaceCodes();
+  fillSubFilter();
   renderDash();
   return !a.error && !b.error;
 }
