@@ -109,6 +109,8 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 .msg{min-height:1.5em;margin-top:6px;font-size:.95rem;color:var(--muted)}
 .msg.err{color:var(--danger)}
 .msg.ok{color:var(--leaf-d);font-weight:600}
+.login .linkbtn{background:none;border:0;padding:6px;color:var(--leaf-d);font:inherit;text-decoration:underline;cursor:pointer;justify-self:center}
+.login .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:min(420px,100%);display:grid;gap:16px}
 .dfoot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px 20px;position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line)}
 .cpad{padding:24px}
 .cpad p{margin:0 0 20px;font-size:1.05rem}
@@ -162,12 +164,24 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div id="login" class="login" hidden>
   <form id="loginForm">
     <h1>Tea Leaves Stock List</h1>
-    <p>Sign in with your team account.</p>
+    <p id="loginHint">Sign in with your team account.</p>
     <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
     <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <div id="lPass2Wrap" hidden><label for="lPass2">Confirm password</label><input id="lPass2" type="password" autocomplete="new-password" minlength="8"></div>
     <div id="loginMsg" class="msg err" aria-live="polite"></div>
     <button class="btn primary" id="btnLogin" type="submit">Sign in</button>
+    <button class="linkbtn" id="btnMode" type="button">Create Account</button>
   </form>
+</div>
+
+<div id="pending" class="login" hidden>
+  <div class="box">
+    <h1>Waiting for approval</h1>
+    <p>Your account <strong id="pendEmail"></strong> has been created. A team member needs to approve it before you can see the tea list.</p>
+    <div id="pendMsg" class="msg" aria-live="polite"></div>
+    <button class="btn primary" id="btnPendCheck" type="button">Check again</button>
+    <button class="linkbtn" id="btnPendOut" type="button">Sign out</button>
+  </div>
 </div>
 
 <div class="app" id="app" hidden>
@@ -499,9 +513,30 @@ function watch(){
 }
 function unwatch(){ if (channel){ sb.removeChannel(channel); channel = null; } }
 
+let signupMode = false;
+function setMode(up){
+  signupMode = up;
+  $('#loginHint').textContent = up ? 'Create an account. A team member will approve it before you can see the data.' : 'Sign in with your team account.';
+  $('#lPass2Wrap').hidden = !up; $('#lPass2').required = up;
+  $('#lPass').autocomplete = up ? 'new-password' : 'current-password';
+  $('#lPass').minLength = up ? 8 : 0;
+  $('#btnLogin').textContent = up ? 'Create Account' : 'Sign in';
+  $('#btnMode').textContent = up ? 'Back to Sign in' : 'Create Account';
+  $('#loginMsg').textContent = ''; $('#loginMsg').className = 'msg err';
+}
+$('#btnMode').addEventListener('click', () => setMode(!signupMode));
+
 async function showApp(session){
-  const on = !!session;
-  $('#login').hidden = on; $('#app').hidden = !on;
+  let on = !!session, waiting = false;
+  if (on){
+    // only approved team members (listed in tea_members) may see the tea data
+    const {data, error} = await sb.from('tea_members').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    if (error){ $('#pendMsg').textContent = 'Could not check your approval. Try again.'; waiting = true; }
+    else if (!data){ waiting = true; $('#pendMsg').textContent = ''; }
+    if (waiting) on = false;
+  }
+  $('#login').hidden = on || waiting; $('#pending').hidden = !waiting; $('#app').hidden = !on;
+  if (waiting) $('#pendEmail').textContent = session.user.email || '';
   if (on){
     $('#who').textContent = session.user.email || '';
     await Promise.all([reload(), loadLists()]); watch(); updateImportBtn(); showView();
@@ -511,13 +546,31 @@ async function showApp(session){
 }
 $('#loginForm').addEventListener('submit', async ev => {
   ev.preventDefault();
-  const btn = $('#btnLogin'); btn.disabled = true; $('#loginMsg').textContent = '';
-  const {error} = await sb.auth.signInWithPassword({email:$('#lEmail').value.trim(), password:$('#lPass').value});
+  const btn = $('#btnLogin'), msg = $('#loginMsg'); btn.disabled = true; msg.textContent = ''; msg.className = 'msg err';
+  const email = $('#lEmail').value.trim(), password = $('#lPass').value;
+  if (signupMode){
+    if (password !== $('#lPass2').value){ msg.textContent = 'The two passwords are not the same.'; btn.disabled = false; return; }
+    const {data, error} = await sb.auth.signUp({email, password});
+    btn.disabled = false;
+    if (error){ msg.textContent = /registered|exists/i.test(error.message) ? 'This email already has an account. Use Sign in.' : error.message; return; }
+    $('#lPass').value = ''; $('#lPass2').value = '';
+    if (!data.session){   // email confirmation is switched on in Supabase
+      setMode(false); msg.className = 'msg ok';
+      msg.textContent = 'Account created. Check your email to confirm it, then sign in. A team member must still approve it.';
+    }
+    return;
+  }
+  const {error} = await sb.auth.signInWithPassword({email, password});
   btn.disabled = false;
-  if (error) $('#loginMsg').textContent = 'Email or password is not right. Try again.';
+  if (error) msg.textContent = 'Email or password is not right. Try again.';
   else $('#lPass').value = '';
 });
 $('#btnSignOut').addEventListener('click', () => sb.auth.signOut());
+$('#btnPendOut').addEventListener('click', () => sb.auth.signOut());
+$('#btnPendCheck').addEventListener('click', async () => {
+  const {data} = await sb.auth.getSession(); await showApp(data.session);
+  if (!$('#pending').hidden && !$('#pendMsg').textContent) $('#pendMsg').textContent = 'Not approved yet.';
+});
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
   setTimeout(() => showApp(session), 0);   // not awaited inside the callback, to avoid blocking auth
