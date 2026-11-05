@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tea Leaves Stock List</title>
+<style>
+:root{
+  --bg:#eceee2;
+  --card:#f8f9f1;
+  --ink:#2e2a20;
+  --muted:#6f705c;
+  --line:#d3d6c1;
+  --head:#dde1c9;
+  --leaf:#5d6e3c;
+  --leaf-d:#4a5a2e;
+  --danger:#9c4235;
+  --out:#e4e4d9;
+  --hover:#eef0df;
+}
+*{box-sizing:border-box}
+html{font-size:17px}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.5;
+  font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif}
+:focus-visible{outline:3px solid #9bb06a;outline-offset:2px}
+
+.app{padding:28px 32px 36px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{margin:0;font-size:1.9rem;font-weight:700;letter-spacing:.01em;line-height:1.2}
+h1 span{display:block;font-size:1.05rem;font-weight:500;color:var(--muted);margin-top:4px}
+
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.toolbar .grow{flex:1 1 280px;max-width:420px}
+.count{color:var(--muted);margin-left:4px}
+.spacer{flex:1}
+
+input,select,textarea{font:inherit;color:inherit;background:#fcfdf8;border:1.5px solid var(--line);
+  border-radius:8px;padding:10px 12px;min-height:44px}
+textarea{resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--leaf);outline:none;box-shadow:0 0 0 3px rgba(93,110,60,.22)}
+input[readonly]{background:#eef0e2;color:var(--muted)}
+
+.btn{font:inherit;font-weight:600;border-radius:8px;padding:10px 16px;min-height:44px;cursor:pointer;border:1.5px solid transparent}
+.btn.primary{background:var(--leaf);color:#fff}
+.btn.primary:hover{background:var(--leaf-d)}
+.btn.primary:disabled{background:#b6bf9e;cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{background:#e0e4cf}
+.btn.danger{background:var(--danger);color:#fff}
+
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:calc(100vh - 250px);min-height:200px}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:2150px;font-size:1rem}
+th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;background:var(--card)}
+thead th{position:sticky;top:0;z-index:3;background:var(--head);white-space:nowrap;font-weight:700;border-bottom:2px solid #c3c8aa}
+th small{display:block;font-weight:500;color:var(--muted);font-size:.82rem;margin-top:1px}
+.s1{position:sticky;left:0;z-index:2;min-width:76px;width:76px}
+.s2{position:sticky;left:76px;z-index:2;min-width:160px;border-right:1px solid var(--line)}
+thead th.s1,thead th.s2{z-index:4}
+tbody tr:hover td{background:var(--hover)}
+tbody tr.out td{background:var(--out);color:#85857a}
+tbody tr.out:hover td{background:#dcdccf}
+td.code{font-weight:700;white-space:nowrap;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+td.name{font-weight:600;min-width:260px;white-space:pre-wrap}
+td.wide,th.wide{min-width:240px}
+td.wrap{white-space:pre-wrap}
+td.nw{white-space:nowrap}
+td.strong{font-weight:700}
+.chip{display:inline-block;padding:3px 11px;border-radius:999px;font-size:.92rem;font-weight:600;white-space:nowrap}
+.lnk{background:none;border:0;font:inherit;font-weight:600;color:var(--leaf-d);cursor:pointer;padding:6px 8px;border-radius:6px}
+.lnk:hover{background:#dfe4cb}
+.lnk.del{color:var(--danger)}
+.lnk.del:hover{background:#ecd5cd}
+tr.empty td{padding:48px 20px;text-align:center;color:var(--muted);background:var(--card)}
+.foot{color:var(--muted);margin-top:12px;font-size:.92rem}
+
+dialog{border:0;border-radius:14px;padding:0;width:min(900px,calc(100% - 24px));max-height:calc(100vh - 24px);
+  background:var(--card);color:var(--ink);box-shadow:0 24px 60px rgba(40,36,24,.35)}
+dialog::backdrop{background:rgba(46,42,32,.5)}
+.dhead{display:flex;justify-content:space-between;align-items:center;padding:20px 24px 6px}
+.dhead h2{margin:0;font-size:1.4rem}
+.x{font:inherit;font-size:1.6rem;line-height:1;background:none;border:0;cursor:pointer;color:var(--muted);padding:6px 10px;border-radius:8px}
+.x:hover{background:#e0e4cf}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 18px;padding:12px 24px 20px}
+.span2{grid-column:span 2}
+.span3{grid-column:1/-1}
+.field label{display:block;font-weight:600;margin-bottom:6px}
+.field label small{color:var(--muted);font-weight:500;margin-left:4px}
+.field input,.field select,.field textarea{width:100%}
+.coderow{display:flex;align-items:center;gap:8px}
+.coderow select{width:110px;flex:none}
+.coderow #fSeq{width:96px;flex:none;text-align:center;font-weight:700}
+.coderow #fThird{flex:1;min-width:90px}
+.coderow b{color:var(--muted)}
+.msg{min-height:1.5em;margin-top:6px;font-size:.95rem;color:var(--muted)}
+.msg.err{color:var(--danger)}
+.msg.ok{color:var(--leaf-d);font-weight:600}
+.dfoot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px 20px;position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line)}
+.cpad{padding:24px}
+.cpad p{margin:0 0 20px;font-size:1.05rem}
+.cpad .dfoot{position:static;border:0;padding:0}
+
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#f3f4e8;
+  padding:12px 20px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+#toast.show{opacity:1}
+
+@media (max-width:720px){
+  .app{padding:18px 14px 28px}
+  .grid{grid-template-columns:1fr}
+  .span2,.span3{grid-column:auto}
+  .tablewrap{max-height:none}
+}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Tea Leaves Stock List</h1>
+  </header>
+
+  <div class="toolbar">
+    <input id="q" class="grow" type="search" placeholder="Search code, name, origin, notes" aria-label="Search stock">
+    <select id="flCat" aria-label="Filter by category"></select>
+    <select id="flApp" aria-label="Filter by appearance"></select>
+    <select id="flStatus" aria-label="Filter by storage status"></select>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="btnCsv" type="button">Export CSV</button>
+    <button class="btn ghost" id="btnBackup" type="button">Backup</button>
+    <button class="btn ghost" id="btnRestore" type="button">Restore</button>
+    <input id="fileRestore" type="file" accept="application/json,.json" hidden>
+    <button class="btn primary" id="btnAdd" type="button">+ Add stock</button>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th class="s1">S.N</th>
+        <th class="s2">Code</th>
+        <th>Appearance</th>
+        <th>Year</th>
+        <th>Name / Brand</th>
+        <th>Category</th>
+        <th>Sub. Category</th>
+        <th>Place No.</th>
+        <th>Place Code</th>
+        <th>Place of Origin</th>
+        <th class="wide">Factory of Origin</th>
+        <th class="wide">Detail Info</th>
+        <th>Giftable</th>
+        <th>Storage Status</th>
+        <th class="wide">Note / Others</th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="foot">Saved in this browser only. Use Backup to keep a copy you can restore later.</div>
+</div>
+
+<dialog id="dlg">
+  <form id="form" novalidate>
+    <div class="dhead">
+      <h2 id="formTitle">Add stock</h2>
+      <button class="x" id="btnClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="grid">
+      <div class="field">
+        <label for="fSn">S.N</label>
+        <input id="fSn" readonly>
+      </div>
+      <div class="field span2">
+        <label for="fType">Code</label>
+        <div class="coderow">
+          <select id="fType" aria-label="Code part 1, type"></select>
+          <b>-</b>
+          <input id="fSeq" readonly placeholder="auto" aria-label="Code part 2, filled automatically">
+          <b>-</b>
+          <input id="fThird" maxlength="6" autocomplete="off" placeholder="01 or 3/7" aria-label="Code part 3, typed by hand">
+        </div>
+        <div id="codeMsg" class="msg" aria-live="polite"></div>
+      </div>
+
+      <div class="field">
+        <label for="fAppear">Appearance</label>
+        <input id="fAppear" readonly placeholder="auto">
+      </div>
+      <div class="field">
+        <label for="fYear">Year</label>
+        <input id="fYear" autocomplete="off" placeholder="2005 or 30年">
+      </div>
+      <div class="field">
+        <label for="fGiftable">Giftable</label>
+        <select id="fGiftable"></select>
+      </div>
+
+      <div class="field span3">
+        <label for="fName">Name / Brand</label>
+        <input id="fName" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="fCategory">Category</label>
+        <select id="fCategory"></select>
+      </div>
+      <div class="field">
+        <label for="fSub">Sub. Category</label>
+        <input id="fSub" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="fStatus">Storage Status</label>
+        <select id="fStatus"></select>
+      </div>
+
+      <div class="field">
+        <label for="fPlaceNo">Place No.</label>
+        <select id="fPlaceNo"></select>
+      </div>
+      <div class="field">
+        <label for="fPlaceCode">Place Code</label>
+        <input id="fPlaceCode" autocomplete="off" placeholder="PC 1, KSR 5">
+        <div id="pcMsg" class="msg err" aria-live="polite"></div>
+      </div>
+      <div class="field">
+        <label for="fOrigin">Place of Origin</label>
+        <input id="fOrigin" autocomplete="off">
+      </div>
+
+      <div class="field span3">
+        <label for="fFactory">Factory of Origin</label>
+        <input id="fFactory" autocomplete="off">
+      </div>
+      <div class="field span3">
+        <label for="fDetail">Detail Info</label>
+        <textarea id="fDetail" rows="2"></textarea>
+      </div>
+      <div class="field span3">
+        <label for="fNote">Note / Others</label>
+        <textarea id="fNote" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="dfoot">
+      <button class="btn ghost" id="btnCancel" type="button">Cancel</button>
+      <button class="btn primary" id="btnSave" type="submit">Save stock</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="cDlg">
+  <div class="cpad">
+    <p id="cMsg"></p>
+    <div class="dfoot">
+      <button class="btn ghost" id="cNo" type="button">Cancel</button>
+      <button class="btn danger" id="cYes" type="button">Delete</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/*LOGIC_START*/
+const TYPES = {
+  TB:{zh:'砖茶',en:'Brick'},
+  TG:{zh:'粒茶',en:'Grain'},
+  TR:{zh:'饼茶',en:'Cake'},
+  TS:{zh:'散茶',en:'Loose'},
+  TT:{zh:'沱茶',en:'Tuo'}
+};
+const pad3 = n => String(n).padStart(3,'0');
+const normThird = raw => String(raw == null ? '' : raw).normalize('NFKC').replace(/\s+/g,'');
+const buildCode = (prefix,seq,third) => prefix + '-' + pad3(seq) + (third ? '-' + third : '');
+
+// Part 3 is typed by hand: empty, two digits (01), or one digit on each side of a slash (3/7).
+// With a slash: a first number of 1 starts a new group and takes the next number;
+// any other first number shares the number of the latest item in the same category.
+function parseThird(raw){
+  const t = normThird(raw);
+  if (t === '' || /^\d{2}$/.test(t)) return {kind:'new', value:t};
+  const m = /^(\d)\/(\d)$/.exec(t);
+  if (!m) return {kind:'invalid', value:t};
+  return {kind: m[1] === '1' ? 'new' : 'shared', value:t};
+}
+function maxSeq(entries,prefix,skipId){
+  let m = 0;
+  for (const e of entries){ if (e.id === skipId || e.prefix !== prefix) continue; if (e.seq > m) m = e.seq; }
+  return m;
+}
+function latestOf(entries,prefix,skipId){
+  let best = null;
+  for (const e of entries){ if (e.id === skipId || e.prefix !== prefix) continue; if (!best || e.sn > best.sn) best = e; }
+  return best;
+}
+function nextSn(entries){ return entries.reduce((m,e) => Math.max(m, e.sn || 0), 0) + 1; }
+
+function computeCode(entries,prefix,thirdRaw,skipId){
+  if (!TYPES[prefix]) return {ok:false, hint:true, error:'Choose the first part of the Code.'};
+  const p = parseThird(thirdRaw);
+  if (p.kind === 'invalid') return {ok:false, error:'Part 3 takes two digits like 01, or one digit on each side of a slash like 3/7.'};
+  let seq;
+  if (p.kind === 'new') seq = maxSeq(entries,prefix,skipId) + 1;
+  else {
+    const prev = latestOf(entries,prefix,skipId);
+    if (!prev) return {ok:false, error:'There is no earlier ' + prefix + ' item yet. Add the first ' + prefix + ' item first.'};
+    seq = prev.seq;
+  }
+  return {ok:true, prefix, seq, third:p.value, code:buildCode(prefix,seq,p.value)};
+}
+// '' = empty (allowed), null = invalid, otherwise the cleaned "PC 1" form.
+function placeCodeNorm(v){
+  const t = String(v || '').trim().toUpperCase();
+  if (t === '') return '';
+  const m = /^([A-Z]{2,3})\s*(\d{1,2})$/.exec(t);
+  return m ? m[1] + ' ' + m[2] : null;
+}
+/*LOGIC_END*/
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY = 'teaLeavesStock.v1';
+const CATS = ['绿茶','白茶','黑茶','红茶','青茶','黄茶','普洱','小青柑','其它'];
+const GIFT = ['Yes','No','Unknown'];
+const STATUS = ['In-Stock','Gift','Sold','Damaged','Personal Use','Unavailable'];
+const CAT_COLOR = {
+  '绿茶':['#d5e0b5','#3f5120'], '白茶':['#ece9d6','#5b5638'], '黑茶':['#cfc2ae','#4b3a22'],
+  '红茶':['#e5c9b4','#6a3b22'], '青茶':['#c6d9c0','#35563a'], '黄茶':['#ecdca0','#6a5a17'],
+  '普洱':['#d3bda2','#503820'], '小青柑':['#efd9a0','#6a4e12'], '其它':['#dfdfd3','#55554a']
+};
+const STATUS_COLOR = {
+  'In-Stock':['#d5e0b5','#3f5120'], 'Gift':['#ecdca0','#6a5a17'], 'Sold':['#cfc2ae','#4b3a22'],
+  'Personal Use':['#cdd6d6','#3a4f50'], 'Damaged':['#e5c9b4','#6a3b22'], 'Unavailable':['#d9d9ce','#55554a']
+};
+
+let storageWarned = false;
+function load(){
+  try { const r = localStorage.getItem(KEY); const a = r ? JSON.parse(r) : []; return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(entries)); }
+  catch(e){ if (!storageWarned){ storageWarned = true; toast('This browser blocked saving. Export CSV or Backup before you close the page.'); } }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+
+let entries = load();
+let editingId = null;
+
+/* ---------- selects ---------- */
+const opt = (v,l) => '<option value="' + esc(v) + '">' + esc(l == null ? v : l) + '</option>';
+$('#flCat').innerHTML = opt('','All categories') + CATS.map(c => opt(c)).join('');
+$('#flApp').innerHTML = opt('','All appearances') + Object.keys(TYPES).map(k => opt(k, TYPES[k].zh)).join('');
+$('#flStatus').innerHTML = opt('','All statuses') + STATUS.map(s => opt(s)).join('');
+$('#fType').innerHTML = opt('','Select') + Object.keys(TYPES).map(k => opt(k)).join('');
+$('#fCategory').innerHTML = opt('','Select') + CATS.map(c => opt(c)).join('');
+$('#fPlaceNo').innerHTML = opt('','Select') + Array.from({length:90}, (_,i) => opt(String(i+1))).join('');
+$('#fGiftable').innerHTML = GIFT.map(g => opt(g)).join('');
+$('#fStatus').innerHTML = STATUS.map(s => opt(s)).join('');
+
+/* ---------- table ---------- */
+function matches(e){
+  if ($('#flCat').value && e.category !== $('#flCat').value) return false;
+  if ($('#flApp').value && e.prefix !== $('#flApp').value) return false;
+  if ($('#flStatus').value && e.status !== $('#flStatus').value) return false;
+  const q = $('#q').value.trim().toLowerCase();
+  if (!q) return true;
+  const t = TYPES[e.prefix] || {zh:'',en:''};
+  return [e.code,t.zh,t.en,e.year,e.name,e.category,e.subCategory,e.placeNo,e.placeCode,e.origin,e.factory,e.detail,e.giftable,e.status,e.note]
+    .join(' ').toLowerCase().includes(q);
+}
+function rowHtml(e){
+  const t = TYPES[e.prefix] || {zh:'',en:''};
+  const cc = CAT_COLOR[e.category] || CAT_COLOR['其它'];
+  const sc = STATUS_COLOR[e.status] || STATUS_COLOR['Unavailable'];
+  const cat = e.category ? '<span class="chip" style="background:' + cc[0] + ';color:' + cc[1] + '">' + esc(e.category) + '</span>' : '';
+  const id = esc(e.id);
+  return '<tr class="' + (e.status === 'In-Stock' ? '' : 'out') + '">' +
+    '<td class="s1">' + esc(e.sn) + '</td>' +
+    '<td class="s2 code">' + esc(e.code) + '</td>' +
+    '<td class="nw">' + esc(t.zh) + '</td>' +
+    '<td>' + esc(e.year) + '</td>' +
+    '<td class="name">' + esc(e.name) + '</td>' +
+    '<td>' + cat + '</td>' +
+    '<td>' + esc(e.subCategory) + '</td>' +
+    '<td class="strong">' + esc(e.placeNo) + '</td>' +
+    '<td class="nw strong">' + esc(e.placeCode) + '</td>' +
+    '<td>' + esc(e.origin) + '</td>' +
+    '<td class="wide">' + esc(e.factory) + '</td>' +
+    '<td class="wide wrap">' + esc(e.detail) + '</td>' +
+    '<td>' + esc(e.giftable) + '</td>' +
+    '<td><span class="chip" style="background:' + sc[0] + ';color:' + sc[1] + '">' + esc(e.status) + '</span></td>' +
+    '<td class="wide wrap">' + esc(e.note) + '</td>' +
+    '<td class="nw"><button class="lnk" type="button" data-act="edit" data-id="' + id + '">Edit</button>' +
+    '<button class="lnk del" type="button" data-act="del" data-id="' + id + '">Delete</button></td>' +
+  '</tr>';
+}
+function render(){
+  const list = entries.filter(matches).sort((a,b) => a.sn - b.sn);
+  $('#count').textContent = list.length + ' of ' + entries.length + ' items';
+  $('#rows').innerHTML = list.length
+    ? list.map(rowHtml).join('')
+    : '<tr class="empty"><td colspan="16">' + (entries.length
+        ? 'No stock matches these filters.'
+        : 'No stock yet. Choose Add stock to enter the first tea.') + '</td></tr>';
+}
+
+/* ---------- form ---------- */
+const dlg = $('#dlg');
+const val = s => $(s).value.trim();
+
+function resolve(){
+  const prefix = $('#fType').value, thirdRaw = $('#fThird').value;
+  const cur = editingId ? entries.find(x => x.id === editingId) : null;
+  // Editing: keep the Code as it is unless the type or part 3 changed.
+  if (cur && prefix === cur.prefix && normThird(thirdRaw) === cur.third)
+    return {ok:true, prefix, seq:cur.seq, third:cur.third, code:cur.code};
+  return computeCode(entries, prefix, thirdRaw, editingId);
+}
+function refresh(){
+  const r = resolve();
+  const t = TYPES[$('#fType').value];
+  $('#fAppear').value = t ? t.zh : '';
+  $('#fSeq').value = r.ok ? pad3(r.seq) : '';
+  const m = $('#codeMsg');
+  if (r.ok){ m.className = 'msg ok'; m.textContent = 'Code: ' + r.code; }
+  else { m.className = 'msg' + (r.hint ? '' : ' err'); m.textContent = r.error; }
+  const pc = placeCodeNorm($('#fPlaceCode').value);
+  $('#pcMsg').textContent = pc === null ? 'Use 2 to 3 letters and 1 to 2 digits, like PC 1 or KSR 5.' : '';
+  $('#btnSave').disabled = !(r.ok && pc !== null);
+}
+function openForm(id){
+  editingId = id || null;
+  const e = id ? entries.find(x => x.id === id) : null;
+  $('#formTitle').textContent = e ? 'Edit stock' : 'Add stock';
+  $('#btnSave').textContent = e ? 'Save changes' : 'Save stock';
+  $('#fSn').value = e ? e.sn : nextSn(entries);
+  $('#fType').value = e ? e.prefix : '';
+  $('#fThird').value = e ? e.third : '';
+  $('#fYear').value = e ? e.year : '';
+  $('#fName').value = e ? e.name : '';
+  $('#fCategory').value = e ? e.category : '';
+  $('#fSub').value = e ? e.subCategory : '';
+  $('#fPlaceNo').value = e ? e.placeNo : '';
+  $('#fPlaceCode').value = e ? e.placeCode : '';
+  $('#fOrigin').value = e ? e.origin : '';
+  $('#fFactory').value = e ? e.factory : '';
+  $('#fDetail').value = e ? e.detail : '';
+  $('#fGiftable').value = e ? e.giftable : 'Unknown';
+  $('#fStatus').value = e ? e.status : 'In-Stock';
+  $('#fNote').value = e ? e.note : '';
+  refresh();
+  dlg.showModal();
+  (e ? $('#fName') : $('#fType')).focus();
+}
+
+$('#form').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const r = resolve();
+  const pc = placeCodeNorm($('#fPlaceCode').value);
+  if (!r.ok || pc === null) return;
+  const data = {
+    prefix:r.prefix, seq:r.seq, third:r.third, code:r.code,
+    year:val('#fYear'), name:val('#fName'), category:$('#fCategory').value, subCategory:val('#fSub'),
+    placeNo:$('#fPlaceNo').value, placeCode:pc, origin:val('#fOrigin'), factory:val('#fFactory'),
+    detail:val('#fDetail'), giftable:$('#fGiftable').value, status:$('#fStatus').value, note:val('#fNote')
+  };
+  if (editingId){
+    Object.assign(entries.find(x => x.id === editingId), data);
+    toast('Changes saved');
+  } else {
+    entries.push(Object.assign({id:uid(), sn:nextSn(entries)}, data));
+    toast('Stock added: ' + data.code);
+  }
+  save(); render(); dlg.close();
+});
+['change'].forEach(n => $('#fType').addEventListener(n, refresh));
+$('#fThird').addEventListener('input', refresh);
+$('#fPlaceCode').addEventListener('input', refresh);
+$('#btnAdd').addEventListener('click', () => openForm());
+$('#btnClose').addEventListener('click', () => dlg.close());
+$('#btnCancel').addEventListener('click', () => dlg.close());
+
+$('#rows').addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-act]');
+  if (!b) return;
+  const e = entries.find(x => x.id === b.dataset.id);
+  if (!e) return;
+  if (b.dataset.act === 'edit') return openForm(e.id);
+  const yes = await ask('Delete ' + e.code + (e.name ? ' (' + e.name.split('\n')[0] + ')' : '') + '? This cannot be undone.', 'Delete');
+  if (!yes) return;
+  entries = entries.filter(x => x.id !== e.id);
+  save(); render(); toast('Deleted ' + e.code);
+});
+
+['q','flCat','flApp','flStatus'].forEach(id => $('#' + id).addEventListener('input', render));
+
+/* ---------- helpers ---------- */
+function ask(msg, yesLabel){
+  return new Promise(res => {
+    const d = $('#cDlg'); let answer = false;
+    $('#cMsg').textContent = msg; $('#cYes').textContent = yesLabel;
+    $('#cYes').onclick = () => { answer = true; d.close(); };
+    $('#cNo').onclick = () => { answer = false; d.close(); };
+    d.onclose = () => res(answer);
+    d.showModal();
+  });
+}
+let toastTimer;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+function download(name, text, mime){
+  const url = URL.createObjectURL(new Blob([text], {type:mime}));
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const today = () => new Date().toISOString().slice(0,10);
+
+$('#btnCsv').addEventListener('click', () => {
+  const head = ['Serial No.','Code','Appearance','Year','Name/Brand','Category','Sub. Category','Place No.','Place Code','Place of Origin','Factory of Origin','Detail Info','Giftable','Storage Status','Note/Others'];
+  const rows = entries.slice().sort((a,b) => a.sn - b.sn).map(e => {
+    const t = TYPES[e.prefix] || {zh:'',en:''};
+    return [e.sn,e.code,t.zh,e.year,e.name,e.category,e.subCategory,e.placeNo,e.placeCode,e.origin,e.factory,e.detail,e.giftable,e.status,e.note];
+  });
+  const csv = [head].concat(rows).map(r => r.map(v => {
+    v = String(v == null ? '' : v);
+    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
+  }).join(',')).join('\r\n');
+  download('tea-stock-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
+});
+$('#btnBackup').addEventListener('click', () => {
+  download('tea-stock-backup-' + today() + '.json',
+    JSON.stringify({app:'tea-leaves-stock', version:1, exportedAt:new Date().toISOString(), entries}, null, 2),
+    'application/json');
+});
+$('#btnRestore').addEventListener('click', () => $('#fileRestore').click());
+$('#fileRestore').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const list = Array.isArray(data) ? data : data.entries;
+    if (!Array.isArray(list)) throw new Error('bad');
+    const clean = list.filter(x => x && TYPES[x.prefix]).map((x,i) => {
+      const seq = Number(x.seq) || 0, third = normThird(x.third);
+      return {
+        id:x.id || uid(), sn:Number(x.sn) || i + 1, prefix:x.prefix, seq, third, code:buildCode(x.prefix,seq,third),
+        year:String(x.year||''), name:String(x.name||''), category:String(x.category||''), subCategory:String(x.subCategory||''),
+        placeNo:String(x.placeNo||''), placeCode:String(x.placeCode||''), origin:String(x.origin||''), factory:String(x.factory||''),
+        detail:String(x.detail||''), giftable:GIFT.includes(x.giftable) ? x.giftable : 'Unknown',
+        status:STATUS.includes(x.status) ? x.status : 'In-Stock', note:String(x.note||'')
+      };
+    });
+    if (!clean.length) throw new Error('empty');
+    const yes = await ask('Replace the current ' + entries.length + ' items with ' + clean.length + ' items from this backup?', 'Replace');
+    if (!yes) return;
+    entries = clean; save(); render(); toast('Backup restored');
+  } catch(e){ toast('That file is not a valid backup.'); }
+});
+
+render();
+})();
+</script>
+</body>
+</html>
