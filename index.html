@@ -110,6 +110,19 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 .msg.err{color:var(--danger)}
 .msg.ok{color:var(--leaf-d);font-weight:600}
 .login .linkbtn{background:none;border:0;padding:6px;color:var(--leaf-d);font:inherit;text-decoration:underline;cursor:pointer;justify-self:center}
+.ro-dash .rm,.ro-dash .new,.ro-dash td:empty{display:none}
+.ro .editonly{display:none !important}
+.login .row2{display:flex;gap:10px;align-items:stretch}
+.login .row2 .linkbtn{flex:1}
+.adm{padding:24px;max-width:1000px;margin:0 auto}
+.adm header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.adm table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.adm th{font-size:.9rem;text-align:center;padding:10px 8px;border-bottom:2px solid var(--ink,#333);line-height:1.2}
+.adm td{padding:10px 8px;text-align:center;border-bottom:1px solid var(--line);word-break:break-all}
+.adm td.em{text-align:left}
+.adm input[type=checkbox]{width:20px;height:20px;accent-color:var(--leaf-d)}
+.adm input[type=text],.adm input[type=password]{width:100%;min-width:130px}
+.adm .dim{color:var(--muted)}
 .login .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:min(420px,100%);display:grid;gap:16px}
 .dfoot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px 20px;position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line)}
 .cpad{padding:24px}
@@ -170,8 +183,29 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
     <div id="lPass2Wrap" hidden><label for="lPass2">Confirm password</label><input id="lPass2" type="password" autocomplete="new-password" minlength="8"></div>
     <div id="loginMsg" class="msg err" aria-live="polite"></div>
     <button class="btn primary" id="btnLogin" type="submit">Sign in</button>
-    <button class="linkbtn" id="btnMode" type="button">Create Account</button>
+    <div class="row2">
+      <button class="linkbtn" id="btnMode" type="button">Create Account</button>
+      <button class="linkbtn" id="btnAdmin" type="button">Admin</button>
+    </div>
   </form>
+  <form id="adminGate" class="box" hidden>
+    <h1>Admin</h1>
+    <p>Enter the Admin password.</p>
+    <div><label for="aPass">Admin password</label><input id="aPass" type="password" autocomplete="off" required></div>
+    <div id="adminGateMsg" class="msg err" aria-live="polite"></div>
+    <button class="btn primary" id="btnAdminGo" type="submit">Enter</button>
+    <button class="linkbtn" id="btnAdminCancel" type="button">Back to Sign in</button>
+  </form>
+</div>
+
+<div id="admin" class="adm" hidden>
+  <header><h1>Admin</h1><button class="btn ghost" id="btnAdminExit" type="button">Exit Admin</button></header>
+  <p class="dim" style="color:var(--muted)">Passwords are stored scrambled and cannot be shown. Use Edit to set a new one. Tick neither box to keep an account out of the list.</p>
+  <div id="adminMsg" class="msg err" aria-live="polite"></div>
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>Account Email</th><th>Password</th><th>Read<br>Only</th><th>Edit<br>Access</th><th></th><th></th></tr></thead>
+    <tbody id="adminRows"></tbody>
+  </table></div>
 </div>
 
 <div id="pending" class="login" hidden>
@@ -187,7 +221,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div class="app" id="app" hidden>
   <header class="top">
     <h1>Tea Leaves Stock List</h1>
-    <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
+    <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
   </header>
 
   <div id="viewStock">
@@ -513,7 +547,7 @@ function watch(){
 }
 function unwatch(){ if (channel){ sb.removeChannel(channel); channel = null; } }
 
-let signupMode = false;
+let signupMode = false, myRole = 'read';
 function setMode(up){
   signupMode = up;
   $('#loginHint').textContent = up ? 'Create an account. A team member will approve it before you can see the data.' : 'Sign in with your team account.';
@@ -530,11 +564,13 @@ async function showApp(session){
   let on = !!session, waiting = false;
   if (on){
     // only approved team members (listed in tea_members) may see the tea data
-    const {data, error} = await sb.from('tea_members').select('user_id').eq('user_id', session.user.id).maybeSingle();
+    const {data, error} = await sb.from('tea_members').select('user_id, role').eq('user_id', session.user.id).maybeSingle();
     if (error){ $('#pendMsg').textContent = 'Could not check your approval. Try again.'; waiting = true; }
     else if (!data){ waiting = true; $('#pendMsg').textContent = ''; }
     if (waiting) on = false;
+    else myRole = data.role;
   }
+  document.body.classList.toggle('ro', myRole !== 'edit');
   $('#login').hidden = on || waiting; $('#pending').hidden = !waiting; $('#app').hidden = !on;
   if (waiting) $('#pendEmail').textContent = session.user.email || '';
   if (on){
@@ -574,6 +610,83 @@ $('#btnPendCheck').addEventListener('click', async () => {
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
   setTimeout(() => showApp(session), 0);   // not awaited inside the callback, to avoid blocking auth
+});
+
+/* ---------- admin ---------- */
+let adminPw = '', adminList = [], adminEditId = null;
+async function adminCall(body){
+  let res;
+  try {
+    res = await fetch(SUPABASE_URL + '/functions/v1/tea-admin', {method:'POST',
+      headers:{'Content-Type':'application/json', apikey:SUPABASE_KEY}, body:JSON.stringify(Object.assign({password:adminPw}, body))});
+  } catch(e){ return {error:'Could not reach the server. Check your connection.'}; }
+  let j = {}; try { j = await res.json(); } catch(e){}
+  if (!res.ok) return {error: j.error || 'Something went wrong. Try again.', status:res.status};
+  return j;
+}
+function adminShow(which){   // 'login' | 'gate' | 'admin'
+  $('#admin').hidden = which !== 'admin';
+  $('#login').hidden = which === 'admin';
+  $('#loginForm').hidden = which !== 'login'; $('#adminGate').hidden = which !== 'gate';
+}
+$('#btnAdmin').addEventListener('click', () => { $('#aPass').value = ''; $('#adminGateMsg').textContent = ''; adminShow('gate'); $('#aPass').focus(); });
+$('#btnAdminCancel').addEventListener('click', () => adminShow('login'));
+$('#adminGate').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const btn = $('#btnAdminGo'); btn.disabled = true; $('#adminGateMsg').textContent = '';
+  adminPw = $('#aPass').value;
+  const r = await adminCall({action:'list'});
+  btn.disabled = false;
+  if (r.error){ adminPw = ''; $('#adminGateMsg').textContent = r.error; return; }
+  $('#aPass').value = ''; adminList = r.accounts; adminEditId = null; adminRender(); adminShow('admin');
+});
+$('#btnAdminExit').addEventListener('click', () => { adminPw = ''; adminList = []; adminEditId = null; adminShow('login'); });
+async function adminReload(){
+  const r = await adminCall({action:'list'});
+  if (r.error){ $('#adminMsg').textContent = r.error; return; }
+  adminList = r.accounts; adminRender();
+}
+function adminRender(){
+  $('#adminRows').innerHTML = adminList.length ? adminList.map(a => {
+    const ed = a.id === adminEditId, id = esc(a.id);
+    const box = (v, name) => '<input type="checkbox" data-role="' + name + '"' + (a.role === v ? ' checked' : '') + (ed ? '' : ' disabled') + ' aria-label="' + name + '">';
+    return '<tr data-id="' + id + '"><td class="em">' + esc(a.email || '') + (a.role === 'none' ? '<div class="dim" style="font-size:.85rem">Waiting for approval</div>' : '') + '</td>' +
+      '<td>' + (ed ? '<input type="text" data-pw placeholder="New password (8+ characters)" autocomplete="off">' : '<span class="dim">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>') + '</td>' +
+      '<td>' + box('read', 'read') + '</td><td>' + box('edit', 'edit') + '</td>' +
+      (ed ? '<td class="nw"><button class="lnk" type="button" data-a="save">Save</button> <button class="lnk" type="button" data-a="cancel">Cancel</button></td>'
+          : '<td><button class="lnk" type="button" data-a="edit">Edit</button></td>') +
+      '<td><button class="lnk del" type="button" data-a="del">Delete</button></td></tr>';
+  }).join('') : '<tr><td colspan="6" class="dim">No accounts yet.</td></tr>';
+}
+$('#adminRows').addEventListener('change', ev => {   // the two boxes act like a choice: one or none
+  const c = ev.target.closest('input[data-role]'); if (!c || !c.checked) return;
+  c.closest('tr').querySelectorAll('input[data-role]').forEach(o => { if (o !== c) o.checked = false; });
+});
+$('#adminRows').addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-a]'); if (!b) return;
+  const tr = b.closest('tr'), id = tr.dataset.id, acc = adminList.find(x => x.id === id);
+  $('#adminMsg').textContent = '';
+  if (b.dataset.a === 'edit'){ adminEditId = id; adminRender(); }
+  else if (b.dataset.a === 'cancel'){ adminEditId = null; adminRender(); }
+  else if (b.dataset.a === 'del'){
+    if (!confirm('Delete ' + acc.email + '? This account will not be able to sign in again.')) return;
+    const r = await adminCall({action:'delete', user_id:id});
+    if (r.error) $('#adminMsg').textContent = r.error; else await adminReload();
+  } else if (b.dataset.a === 'save'){
+    const pw = tr.querySelector('[data-pw]').value;
+    const role = tr.querySelector('[data-role="edit"]').checked ? 'edit' : tr.querySelector('[data-role="read"]').checked ? 'read' : 'none';
+    if (pw && pw.length < 8){ $('#adminMsg').textContent = 'The new password must be at least 8 characters.'; return; }
+    b.disabled = true;
+    if (role !== acc.role){
+      const r = await adminCall({action:'set_role', user_id:id, role});
+      if (r.error){ $('#adminMsg').textContent = r.error; b.disabled = false; return; }
+    }
+    if (pw){
+      const r = await adminCall({action:'set_password', user_id:id, new_password:pw});
+      if (r.error){ $('#adminMsg').textContent = r.error; b.disabled = false; return; }
+    }
+    adminEditId = null; await adminReload();
+  }
 });
 
 /* ---------- selects ---------- */
@@ -627,8 +740,8 @@ function rowHtml(e){
     '<td class="f1 ctr">' + esc(e.giftable) + '</td>' +
     '<td class="ctr"><span class="chip" style="background:' + sc[0] + ';color:' + sc[1] + '">' + esc(e.status) + '</span></td>' +
     '<td class="wide wrap f2">' + esc(e.note) + '</td>' +
-    '<td class="nw"><button class="lnk" type="button" data-act="edit" data-id="' + id + '">Edit</button>' +
-    '<button class="lnk del" type="button" data-act="del" data-id="' + id + '">Delete</button></td>' +
+    '<td class="nw"><button class="lnk editonly" type="button" data-act="edit" data-id="' + id + '">Edit</button>' +
+    '<button class="lnk del editonly" type="button" data-act="del" data-id="' + id + '">Delete</button></td>' +
   '</tr>';
 }
 // Sub. Category: room for 5 characters per line; longer names shrink to fit instead of wrapping.
@@ -895,6 +1008,8 @@ function renderDash(){
     }).join('') + '</tr>';
   }
   $('#placeTable').innerHTML = ph + '</tbody>';
+  if (myRole !== 'edit') $('#viewDash').querySelectorAll('input').forEach(i => { i.readOnly = true; });
+  $('#viewDash').classList.toggle('ro-dash', myRole !== 'edit');
 }
 const dash = $('#viewDash');
 dash.addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') ev.target.blur(); });
@@ -950,7 +1065,7 @@ function localItems(){
 function updateImportBtn(){
   let done = false;
   try { done = localStorage.getItem(LOCAL_KEY + '.imported') === '1'; } catch(e){}
-  $('#btnImport').hidden = done || localItems().length === 0;
+  $('#btnImport').hidden = done || localItems().length === 0 || myRole !== 'edit';
 }
 $('#btnImport').addEventListener('click', async () => {
   const items = localItems().sort((a,b) => (a.sn || 0) - (b.sn || 0));

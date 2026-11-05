@@ -26,6 +26,8 @@ Both lists live in Supabase (`tea_sub_categories`, `tea_places`) and update live
 
 The login page has a **Create Account** button. Anyone can register, but a new account only sees a "Waiting for approval" screen until it is added to the `tea_members` table in Supabase (Table Editor → `tea_members` → Insert row → paste the user's id from Authentication → Users). The tea tables (`tea_stock`, `tea_places`, `tea_sub_categories`) are readable and editable by approved members only. Accounts that existed before this feature were approved automatically.
 
+**Admin page:** the Admin button on the login page asks for the Admin password, then lists every account. Tick **Read Only** (can view, cannot change anything) or **Edit Access** (can change the list); tick neither to keep the account waiting. Edit sets a new password, Delete removes the account. Passwords cannot be shown because Supabase only keeps them scrambled. The Admin password is checked by the `tea-admin` Edge Function using the secret `TEA_ADMIN_PASSWORD` (Supabase → Edge Functions → Secrets), not in the web page. Five wrong tries lock it for 15 minutes.
+
 In the Supabase dashboard (Authentication) also check: sign-ups are enabled, and **Site URL** is your Vercel address so confirmation emails link back to the app.
 
 ## Deploy to Vercel
