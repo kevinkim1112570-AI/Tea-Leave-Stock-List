@@ -798,6 +798,7 @@ function showView(){
   const d = location.hash === '#dashboard';
   $('#viewStock').hidden = d; $('#viewDash').hidden = !d;
   $('#btnDash').hidden = d; $('#btnBack').hidden = !d;
+  $('#btnSignOut').hidden = d;   // no Sign out while on the Dashboard
   if (d) renderDash();
 }
 window.addEventListener('hashchange', showView);
