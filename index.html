@@ -64,7 +64,11 @@ tbody tr:hover td{background:var(--hover)}
 tbody tr.out td{background:var(--out);color:#85857a}
 tbody tr.out:hover td{background:#dcdccf}
 td.code{font-weight:700;white-space:nowrap;letter-spacing:.02em;font-variant-numeric:tabular-nums}
-td.name{font-weight:600;min-width:260px;white-space:pre-wrap}
+td.name{position:relative;padding-left:34px;padding-right:34px;font-weight:600;min-width:260px;white-space:pre-wrap}
+.lnkico{position:absolute;top:4px;right:4px;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;color:var(--leaf-d);opacity:0;transition:opacity .12s}
+td.name:hover .lnkico,.lnkico:focus-visible{opacity:1}
+.lnkico:hover{background:#dfe4cb}
+@media (hover:none){.lnkico{opacity:1}}
 td.wide,th.wide{min-width:240px}
 td.mid,th.mid{min-width:150px}
 td.f1{font-size:.88rem}
@@ -265,6 +269,11 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
         <label for="fName">Name / Brand</label>
         <input id="fName" autocomplete="off">
       </div>
+      <div class="field span3">
+        <label for="fUrl">URL</label>
+        <input id="fUrl" inputmode="url" autocomplete="off" placeholder="https://">
+        <div id="urlMsg" class="msg err" aria-live="polite"></div>
+      </div>
 
       <div class="field">
         <label for="fCategory">Category</label>
@@ -408,6 +417,16 @@ function placeMatches(e, query){
   if (full) return code === full;
   return code.replace(/\s+/g, '').startsWith(q.toUpperCase().replace(/\s+/g, ''));
 }
+// Web address: '' is allowed; a missing scheme becomes https://; only http and https links are accepted.
+function normUrl(raw){
+  let t = String(raw == null ? '' : raw).trim();
+  if (t === '') return '';
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(t)) t = 'https://' + t;
+  try {
+    const u = new URL(t);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.includes('.') ? u.href : null;
+  } catch(e){ return null; }
+}
 /*LOGIC_END*/
 
 const $ = s => document.querySelector(s);
@@ -439,13 +458,13 @@ const LOCAL_KEY = 'teaLeavesStock.v1';   // the old browser-only list, used once
 
 const fromRow = r => ({
   id:r.id, sn:r.serial_no, prefix:r.prefix, seq:r.seq, third:r.third, code:r.code, year:r.year, name:r.name,
-  category:r.category, subCategory:r.sub_category, placeNo:r.place_no == null ? '' : String(r.place_no),
+  url:r.url, category:r.category, subCategory:r.sub_category, placeNo:r.place_no == null ? '' : String(r.place_no),
   placeCode:r.place_code, origin:r.origin, factory:r.factory, detail:r.detail, giftable:r.giftable,
   status:r.storage_status, note:r.note
 });
 const toRow = e => ({
   serial_no:e.sn, prefix:e.prefix, seq:e.seq, third:e.third, code:e.code, year:e.year, name:e.name,
-  category:e.category, sub_category:e.subCategory, place_no:e.placeNo === '' ? null : Number(e.placeNo),
+  url:e.url || '', category:e.category, sub_category:e.subCategory, place_no:e.placeNo === '' ? null : Number(e.placeNo),
   place_code:e.placeCode, origin:e.origin, factory:e.factory, detail:e.detail, giftable:e.giftable,
   storage_status:e.status, note:e.note
 });
@@ -535,12 +554,16 @@ function rowHtml(e){
   const sc = STATUS_COLOR[e.status] || STATUS_COLOR['Unavailable'];
   const cat = e.category ? '<span class="chip" style="background:' + cc[0] + ';color:' + cc[1] + '">' + esc(e.category) + '</span>' : '';
   const id = esc(e.id);
+  const link = e.url
+    ? '<a class="lnkico" href="' + esc(e.url) + '" target="_blank" rel="noopener noreferrer" title="Open link" aria-label="Open link for ' + esc(e.name || e.code) + '">' +
+      '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg></a>'
+    : '';
   return '<tr class="' + (e.status === 'In-Stock' ? '' : 'out') + '">' +
     '<td class="s1">' + esc(e.sn) + '</td>' +
     '<td class="s2 code">' + esc(e.code) + '</td>' +
     '<td class="nw narrow f1 ctr">' + esc(t.zh) + '</td>' +
     '<td class="f1 ctr">' + esc(e.year) + '</td>' +
-    '<td class="name ctr">' + esc(e.name) + '</td>' +
+    '<td class="name ctr">' + esc(e.name) + link + '</td>' +
     '<td class="ctr">' + cat + '</td>' +
     '<td class="f1"><div class="fitbox"><span class="fit">' + esc(e.subCategory) + '</span></div></td>' +
     '<td class="strong f1 ctr">' + esc(e.placeNo) + '</td>' +
@@ -604,7 +627,9 @@ function refresh(){
   const pm = $('#pcMsg');
   pm.className = 'msg' + (pl.ok ? (pl.isNew ? ' ok' : '') : (pl.hint ? '' : ' err'));
   pm.textContent = !pl.ok ? pl.error : (pl.isNew ? 'New Place Code. It will use Place No. ' + pl.no + '.' : '');
-  $('#btnSave').disabled = !(r.ok && pl.ok);
+  const ur = normUrl($('#fUrl').value);
+  $('#urlMsg').textContent = ur === null ? 'Enter a web address like https://example.com' : '';
+  $('#btnSave').disabled = !(r.ok && pl.ok && ur !== null);
 }
 // Sub. Category choices come from the Category List on the Dashboard.
 function fillSubOptions(cat, current){
@@ -629,6 +654,7 @@ function openForm(id){
   $('#fThird').value = e ? e.third : '';
   $('#fYear').value = e ? e.year : '';
   $('#fName').value = e ? e.name : '';
+  $('#fUrl').value = e ? e.url : '';
   $('#fCategory').value = e ? e.category : '';
   fillSubOptions($('#fCategory').value, e ? e.subCategory : '');
   $('#fSub').value = e ? e.subCategory : '';
@@ -653,7 +679,7 @@ $('#form').addEventListener('submit', async ev => {
   const saveBtn = $('#btnSave');
   if (saveBtn.disabled) return;
   const fields = {
-    year:val('#fYear'), name:val('#fName'), category:$('#fCategory').value, subCategory:val('#fSub'),
+    year:val('#fYear'), name:val('#fName'), url:normUrl($('#fUrl').value) || '', category:$('#fCategory').value, subCategory:val('#fSub'),
     origin:val('#fOrigin'), factory:val('#fFactory'),
     detail:val('#fDetail'), giftable:$('#fGiftable').value, status:$('#fStatus').value, note:val('#fNote')
   };
@@ -702,6 +728,8 @@ $('#form').addEventListener('submit', async ev => {
 $('#fThird').addEventListener('input', refresh);
 $('#fCategory').addEventListener('change', () => fillSubOptions($('#fCategory').value, ''));
 $('#fPlaceCode').addEventListener('input', refresh);
+$('#fUrl').addEventListener('input', refresh);
+$('#fUrl').addEventListener('change', () => { const u = normUrl($('#fUrl').value); if (u) $('#fUrl').value = u; refresh(); });
 $('#fPlaceCode').addEventListener('change', () => {
   const c = placeCodeNorm($('#fPlaceCode').value);
   if (c) $('#fPlaceCode').value = c;   // tidy "ksr2" into "KSR 2"
@@ -760,10 +788,10 @@ function download(name, text, mime){
 const today = () => new Date().toISOString().slice(0,10);
 
 $('#btnCsv').addEventListener('click', () => {
-  const head = ['Serial No.','Code','Form','Year','Name/Brand','Category','Sub. Category','Place No.','Place Code','Place of Origin','Factory of Origin','Detail Info','Giftable','Storage Status','Note/Others'];
+  const head = ['Serial No.','Code','Form','Year','Name/Brand','Category','Sub. Category','Place No.','Place Code','Place of Origin','Factory of Origin','Detail Info','Giftable','Storage Status','Note/Others','URL'];
   const rows = entries.slice().sort((a,b) => a.sn - b.sn).map(e => {
     const t = TYPES[e.prefix] || {zh:'',en:''};
-    return [e.sn,e.code,t.zh,e.year,e.name,e.category,e.subCategory,e.placeNo,e.placeCode,e.origin,e.factory,e.detail,e.giftable,e.status,e.note];
+    return [e.sn,e.code,t.zh,e.year,e.name,e.category,e.subCategory,e.placeNo,e.placeCode,e.origin,e.factory,e.detail,e.giftable,e.status,e.note,e.url];
   });
   const csv = [head].concat(rows).map(r => r.map(v => {
     v = String(v == null ? '' : v);
