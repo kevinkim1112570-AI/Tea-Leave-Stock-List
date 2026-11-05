@@ -111,6 +111,8 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 .msg.ok{color:var(--leaf-d);font-weight:600}
 .login .linkbtn{background:none;border:0;padding:6px;color:var(--leaf-d);font:inherit;text-decoration:underline;cursor:pointer;justify-self:center}
 .ro-dash .rm,.ro-dash .new,.ro-dash td:empty{display:none}
+.robanner{display:none;background:#ecdca0;color:#5a4a10;border:1px solid #d6c47a;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-weight:600}
+.ro .robanner{display:block}
 .ro .editonly{display:none !important}
 .login .row2{display:flex;gap:10px;align-items:stretch}
 .login .row2 .linkbtn{flex:1}
@@ -223,6 +225,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
     <h1>Tea Leaves Stock List</h1>
     <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
   </header>
+  <div class="robanner" role="status">Your account is Read Only. You can view the list, but you cannot add, edit or delete anything. Ask an Admin if you need Edit Access.</div>
 
   <div id="viewStock">
   <div class="toolbar">
@@ -547,7 +550,7 @@ function watch(){
 }
 function unwatch(){ if (channel){ sb.removeChannel(channel); channel = null; } }
 
-let signupMode = false, myRole = 'read';
+let signupMode = false, myRole = 'read', roNotified = false;
 function setMode(up){
   signupMode = up;
   $('#loginHint').textContent = up ? 'Create an account. A team member will approve it before you can see the data.' : 'Sign in with your team account.';
@@ -571,6 +574,11 @@ async function showApp(session){
     else myRole = data.role;
   }
   document.body.classList.toggle('ro', myRole !== 'edit');
+  if (on && myRole !== 'edit' && !roNotified){
+    roNotified = true;
+    alert('Your account is Read Only.\n\nYou can view the tea list, but you cannot add, edit or delete anything. Ask an Admin if you need Edit Access.');
+  }
+  if (!on) roNotified = false;
   $('#login').hidden = on || waiting; $('#pending').hidden = !waiting; $('#app').hidden = !on;
   if (waiting) $('#pendEmail').textContent = session.user.email || '';
   if (on){
