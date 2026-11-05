@@ -170,7 +170,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
   <div id="viewStock">
   <div class="toolbar">
     <input id="q" class="grow" type="search" placeholder="Search code, name, origin, notes" aria-label="Search stock">
-    <select id="flApp" aria-label="Filter by appearance"></select>
+    <select id="flApp" aria-label="Filter by form"></select>
     <div class="fstack">
       <select id="flSub" aria-label="Filter by sub category" hidden></select>
       <select id="flCat" aria-label="Filter by category"></select>
@@ -188,7 +188,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
       <thead><tr>
         <th class="s1">S.N</th>
         <th class="s2">Code</th>
-        <th class="narrow">Appearance</th>
+        <th class="narrow">Form</th>
         <th>Year</th>
         <th>Name / Brand</th>
         <th>Category</th>
@@ -244,7 +244,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
       </div>
 
       <div class="field">
-        <label for="fAppear">Appearance</label>
+        <label for="fAppear">Form</label>
         <input id="fAppear" readonly placeholder="auto">
       </div>
       <div class="field">
@@ -502,7 +502,7 @@ sb.auth.onAuthStateChange((event, session) => {
 /* ---------- selects ---------- */
 const opt = (v,l) => '<option value="' + esc(v) + '">' + esc(l == null ? v : l) + '</option>';
 $('#flCat').innerHTML = opt('','All categories') + CATS.map(c => opt(c)).join('');
-$('#flApp').innerHTML = opt('','All appearances') + Object.keys(TYPES).map(k => opt(k, TYPES[k].zh)).join('');
+$('#flApp').innerHTML = opt('','All forms') + Object.keys(TYPES).map(k => opt(k, TYPES[k].zh)).join('');
 $('#flStatus').innerHTML = opt('','All statuses') + STATUS.map(s => opt(s)).join('');
 $('#flGift').innerHTML = opt('','All giftable') + GIFT.map(g => opt(g)).join('');
 $('#fType').innerHTML = opt('','Select') + Object.keys(TYPES).map(k => opt(k)).join('');
@@ -741,7 +741,7 @@ function download(name, text, mime){
 const today = () => new Date().toISOString().slice(0,10);
 
 $('#btnCsv').addEventListener('click', () => {
-  const head = ['Serial No.','Code','Appearance','Year','Name/Brand','Category','Sub. Category','Place No.','Place Code','Place of Origin','Factory of Origin','Detail Info','Giftable','Storage Status','Note/Others'];
+  const head = ['Serial No.','Code','Form','Year','Name/Brand','Category','Sub. Category','Place No.','Place Code','Place of Origin','Factory of Origin','Detail Info','Giftable','Storage Status','Note/Others'];
   const rows = entries.slice().sort((a,b) => a.sn - b.sn).map(e => {
     const t = TYPES[e.prefix] || {zh:'',en:''};
     return [e.sn,e.code,t.zh,e.year,e.name,e.category,e.subCategory,e.placeNo,e.placeCode,e.origin,e.factory,e.detail,e.giftable,e.status,e.note];
