@@ -18,7 +18,7 @@ Sign in with the same team accounts as the Stock In/Out List. Only signed-in use
 The **Dashboard** button opens two lists that the Add Stock form uses:
 
 - **Category List**: one column per Category, listing its Sub. Category choices. Edit a name in place, type in the empty cell at the bottom of a column to add one, or use the x to remove one.
-- **Place No. and Place Code**: Place No. 1 to 90 is fixed, only the Place Code can be changed. A Place No. with no Place Code is not offered when adding stock, and the Place Code fills in by itself from the Place No.
+- **Place No. and Place Code**: Place No. 1 to 90 is fixed, only the Place Code can be changed. In Add Stock you pick or type the Place Code and the Place No. fills in by itself: an existing code gives its Place No., and a new code takes the lowest Place No. that has no code yet and is added to this list. Each Place Code belongs to one Place No.
 
 Both lists live in Supabase (`tea_sub_categories`, `tea_places`) and update live for everyone.
 

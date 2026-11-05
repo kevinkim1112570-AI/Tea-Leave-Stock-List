@@ -206,7 +206,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
     <div class="tablewrap dwrap"><table class="dtable" id="catTable"></table></div>
 
     <h2 class="dtitle">Place No. and Place Code</h2>
-    <p class="dnote">Place No. 1 to 90 is fixed. Change a Place Code when a box holds something else. A Place No. with no Place Code is not offered when adding stock.</p>
+    <p class="dnote">Place No. 1 to 90 is fixed. Change a Place Code when a box holds something else. A Place No. with no Place Code is the next one given to a new Place Code when adding stock.</p>
     <div class="tablewrap dwrap"><table class="ptable" id="placeTable"></table></div>
   </section>
 </div>
@@ -267,11 +267,13 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 
       <div class="field">
         <label for="fPlaceNo">Place No.</label>
-        <select id="fPlaceNo"></select>
+        <input id="fPlaceNo" readonly placeholder="auto">
       </div>
       <div class="field">
         <label for="fPlaceCode">Place Code</label>
-        <input id="fPlaceCode" readonly placeholder="auto">
+        <input id="fPlaceCode" list="placeCodes" autocomplete="off" placeholder="Pick or type a code">
+        <datalist id="placeCodes"></datalist>
+        <div id="pcMsg" class="msg" aria-live="polite"></div>
       </div>
       <div class="field">
         <label for="fOrigin">Place of Origin</label>
@@ -368,6 +370,19 @@ function placeCodeNorm(v){
   if (t === '') return '';
   const m = /^([A-Z]{1,3})\s*(\d{1,2})$/.exec(t);
   return m ? m[1] + ' ' + m[2] : null;
+}
+// Place Code is typed or picked; Place No. follows it.
+// An existing code gives its Place No.; a new code takes the lowest Place No. that has no code yet.
+function resolvePlaceCode(places, raw){
+  const code = placeCodeNorm(raw);
+  if (code === null) return {ok:false, hint:true, error:'Use 1 to 3 letters and 1 to 2 digits, like PC 1 or KSR 5.'};
+  if (code === '') return {ok:true, no:'', code:'', isNew:false};
+  if (!places.length) return {ok:false, error:'The Place No. list did not load. Refresh the page.'};
+  const hit = places.find(p => p.place_code === code);
+  if (hit) return {ok:true, no:String(hit.place_no), code, isNew:false};
+  const free = places.find(p => p.place_code === '');
+  if (!free) return {ok:false, error:'All 90 Place No. are in use. Free one on the Dashboard first.'};
+  return {ok:true, no:String(free.place_no), code, isNew:true};
 }
 /*LOGIC_END*/
 
@@ -542,7 +557,12 @@ function refresh(){
   const m = $('#codeMsg');
   if (r.ok){ m.className = 'msg ok'; m.textContent = 'Code: ' + r.code; }
   else { m.className = 'msg' + (r.hint ? '' : ' err'); m.textContent = r.error; }
-  $('#btnSave').disabled = !r.ok;
+  const pl = resolvePlace();
+  $('#fPlaceNo').value = pl.ok ? pl.no : '';
+  const pm = $('#pcMsg');
+  pm.className = 'msg' + (pl.ok ? (pl.isNew ? ' ok' : '') : (pl.hint ? '' : ' err'));
+  pm.textContent = !pl.ok ? pl.error : (pl.isNew ? 'New Place Code. It will use Place No. ' + pl.no + '.' : '');
+  $('#btnSave').disabled = !(r.ok && pl.ok);
 }
 // Sub. Category choices come from the Category List on the Dashboard.
 function fillSubOptions(cat, current){
@@ -551,18 +571,12 @@ function fillSubOptions(cat, current){
   $('#fSub').innerHTML = opt('', cat ? 'Select' : 'Choose a Category first') + names.map(n => opt(n)).join('');
   $('#fSub').disabled = !cat;
 }
-// Place No. choices: only numbers that have a Place Code (plus this item's own number when editing).
-function fillPlaceOptions(current){
-  const avail = places.filter(p => p.place_code !== '' || String(p.place_no) === String(current));
-  $('#fPlaceNo').innerHTML = opt('', 'Select') + avail.map(p => opt(String(p.place_no), p.place_code ? p.place_no + ' - ' + p.place_code : String(p.place_no))).join('');
+// The Place Code box suggests every code on the Dashboard list; a new code can also be typed.
+function fillPlaceCodes(){
+  $('#placeCodes').innerHTML = places.filter(p => p.place_code !== '')
+    .map(p => '<option value="' + esc(p.place_code) + '" label="Place No. ' + p.place_no + '"></option>').join('');
 }
-// Place Code follows the Place No. and cannot be typed.
-function syncPlaceCode(){
-  const no = $('#fPlaceNo').value;
-  const cur = editingId ? entries.find(x => x.id === editingId) : null;
-  const p = places.find(x => String(x.place_no) === no);
-  $('#fPlaceCode').value = !no ? '' : (p && p.place_code) || (cur && String(cur.placeNo) === no ? cur.placeCode : '');
-}
+const resolvePlace = () => resolvePlaceCode(places, $('#fPlaceCode').value);
 function openForm(id){
   editingId = id || null;
   const e = id ? entries.find(x => x.id === id) : null;
@@ -576,9 +590,11 @@ function openForm(id){
   $('#fCategory').value = e ? e.category : '';
   fillSubOptions($('#fCategory').value, e ? e.subCategory : '');
   $('#fSub').value = e ? e.subCategory : '';
-  fillPlaceOptions(e ? e.placeNo : '');
-  $('#fPlaceNo').value = e ? e.placeNo : '';
-  syncPlaceCode();
+  fillPlaceCodes();
+  { // editing: show the code the item's Place No. has now on the Dashboard list
+    const pl = e && places.find(x => String(x.place_no) === String(e.placeNo));
+    $('#fPlaceCode').value = e ? ((pl && pl.place_code) || e.placeCode) : '';
+  }
   $('#fOrigin').value = e ? e.origin : '';
   $('#fFactory').value = e ? e.factory : '';
   $('#fDetail').value = e ? e.detail : '';
@@ -594,10 +610,9 @@ $('#form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const saveBtn = $('#btnSave');
   if (saveBtn.disabled) return;
-  const pc = $('#fPlaceCode').value;
   const fields = {
     year:val('#fYear'), name:val('#fName'), category:$('#fCategory').value, subCategory:val('#fSub'),
-    placeNo:$('#fPlaceNo').value, placeCode:pc, origin:val('#fOrigin'), factory:val('#fFactory'),
+    origin:val('#fOrigin'), factory:val('#fFactory'),
     detail:val('#fDetail'), giftable:$('#fGiftable').value, status:$('#fStatus').value, note:val('#fNote')
   };
   saveBtn.disabled = true;
@@ -605,11 +620,19 @@ $('#form').addEventListener('submit', async ev => {
     // Reload first so the numbers are worked out from the latest list. If a teammate saved the same
     // number a moment earlier, the database refuses it (error 23505) and we work it out again.
     for (let attempt = 0; attempt < 3; attempt++){
-      if (!(await reload())) throw new Error('load');
+      if (!(await reload()) || !(await loadLists())) throw new Error('load');
       if (editingId && !entries.some(x => x.id === editingId)){ toast('This item was deleted by someone else.'); dlg.close(); return; }
       const r = resolve();
       if (!r.ok){ toast(r.error); return; }
-      const e = Object.assign({prefix:r.prefix, seq:r.seq, third:r.third, code:r.code}, fields);
+      const pl = resolvePlace();
+      if (!pl.ok){ toast(pl.error); return; }
+      if (pl.isNew){
+        // Put the new Place Code on the Dashboard list, but only if that Place No. is still free.
+        const claim = await sb.from('tea_places').update({place_code:pl.code}).eq('place_no', Number(pl.no)).eq('place_code', '').select('place_no');
+        if (claim.error && claim.error.code !== '23505') throw claim.error;
+        if (claim.error || !claim.data.length) continue;   // a teammate took that number or code first: work it out again
+      }
+      const e = Object.assign({prefix:r.prefix, seq:r.seq, third:r.third, code:r.code, placeNo:pl.no, placeCode:pl.code}, fields);
       let error;
       if (editingId){
         e.sn = entries.find(x => x.id === editingId).sn;
@@ -619,7 +642,7 @@ $('#form').addEventListener('submit', async ev => {
         ({error} = await sb.from(TABLE).insert(toRow(e)));
       }
       if (!error){
-        await reload();
+        await Promise.all([reload(), loadLists()]);
         toast(editingId ? 'Changes saved' : 'Stock added: ' + e.code);
         dlg.close();
         return;
@@ -636,7 +659,12 @@ $('#form').addEventListener('submit', async ev => {
 ['change'].forEach(n => $('#fType').addEventListener(n, refresh));
 $('#fThird').addEventListener('input', refresh);
 $('#fCategory').addEventListener('change', () => fillSubOptions($('#fCategory').value, ''));
-$('#fPlaceNo').addEventListener('change', syncPlaceCode);
+$('#fPlaceCode').addEventListener('input', refresh);
+$('#fPlaceCode').addEventListener('change', () => {
+  const c = placeCodeNorm($('#fPlaceCode').value);
+  if (c) $('#fPlaceCode').value = c;   // tidy "ksr2" into "KSR 2"
+  refresh();
+});
 $('#btnAdd').addEventListener('click', () => openForm());
 $('#btnClose').addEventListener('click', () => dlg.close());
 $('#btnCancel').addEventListener('click', () => dlg.close());
@@ -700,6 +728,7 @@ async function loadLists(){
   ]);
   if (!a.error) subCats = a.data;
   if (!b.error) places = b.data;
+  fillPlaceCodes();
   renderDash();
   return !a.error && !b.error;
 }
@@ -761,7 +790,7 @@ dash.addEventListener('change', async ev => {
     const next = subCats.reduce((m, s) => Math.max(m, s.sort_order), 0) + 1;
     ({error} = await sb.from('tea_sub_categories').insert({category:el.dataset.cat, name:v, sort_order:next}));
   }
-  if (error) toast(error.code === '23505' ? 'That name is already in this column.' : 'Could not save. Check your connection and try again.');
+  if (error) toast(error.code === '23505' ? (el.dataset.place ? 'That Place Code is already used by another Place No.' : 'That name is already in this column.') : 'Could not save. Check your connection and try again.');
   await loadLists();
 });
 
