@@ -67,6 +67,10 @@ td.code{font-weight:700;white-space:nowrap;letter-spacing:.02em;font-variant-num
 td.name{font-weight:600;min-width:260px;white-space:pre-wrap}
 td.wide,th.wide{min-width:240px}
 td.mid,th.mid{min-width:150px}
+td.f1{font-size:.88rem}
+td.f2{font-size:.76rem}
+.fitbox{width:5em;overflow:hidden;white-space:nowrap}
+.fit{display:inline-block;white-space:nowrap}
 .narrow{padding-left:8px;padding-right:8px}
 td.wrap{white-space:pre-wrap}
 td.nw{white-space:nowrap}
@@ -533,22 +537,35 @@ function rowHtml(e){
   return '<tr class="' + (e.status === 'In-Stock' ? '' : 'out') + '">' +
     '<td class="s1">' + esc(e.sn) + '</td>' +
     '<td class="s2 code">' + esc(e.code) + '</td>' +
-    '<td class="nw narrow">' + esc(t.zh) + '</td>' +
-    '<td>' + esc(e.year) + '</td>' +
+    '<td class="nw narrow f1">' + esc(t.zh) + '</td>' +
+    '<td class="f1">' + esc(e.year) + '</td>' +
     '<td class="name">' + esc(e.name) + '</td>' +
     '<td>' + cat + '</td>' +
-    '<td>' + esc(e.subCategory) + '</td>' +
-    '<td class="strong">' + esc(e.placeNo) + '</td>' +
-    '<td class="nw strong">' + esc(e.placeCode) + '</td>' +
-    '<td>' + esc(e.origin) + '</td>' +
-    '<td class="mid">' + esc(e.factory) + '</td>' +
-    '<td class="wide wrap">' + esc(e.detail) + '</td>' +
-    '<td>' + esc(e.giftable) + '</td>' +
+    '<td class="f1"><div class="fitbox"><span class="fit">' + esc(e.subCategory) + '</span></div></td>' +
+    '<td class="strong f1">' + esc(e.placeNo) + '</td>' +
+    '<td class="nw strong f1">' + esc(e.placeCode) + '</td>' +
+    '<td class="f1">' + esc(e.origin) + '</td>' +
+    '<td class="mid f2">' + esc(e.factory) + '</td>' +
+    '<td class="wide wrap f2">' + esc(e.detail) + '</td>' +
+    '<td class="f1">' + esc(e.giftable) + '</td>' +
     '<td><span class="chip" style="background:' + sc[0] + ';color:' + sc[1] + '">' + esc(e.status) + '</span></td>' +
-    '<td class="wide wrap">' + esc(e.note) + '</td>' +
+    '<td class="wide wrap f2">' + esc(e.note) + '</td>' +
     '<td class="nw"><button class="lnk" type="button" data-act="edit" data-id="' + id + '">Edit</button>' +
     '<button class="lnk del" type="button" data-act="del" data-id="' + id + '">Delete</button></td>' +
   '</tr>';
+}
+// Sub. Category: room for 5 characters per line; longer names shrink to fit instead of wrapping.
+function fitCells(){
+  document.querySelectorAll('#rows .fitbox').forEach(box => {
+    const span = box.firstElementChild;
+    span.style.fontSize = '';
+    for (let i = 0; i < 2; i++){
+      const w = span.offsetWidth, max = box.clientWidth;
+      if (!w || w <= max) break;
+      const cur = parseFloat(span.style.fontSize) || 100;
+      span.style.fontSize = Math.max(50, Math.floor(cur * max / w)) + '%';
+    }
+  });
 }
 function render(){
   const list = entries.filter(matches).sort((a,b) => a.sn - b.sn);
@@ -558,6 +575,7 @@ function render(){
   else if (loadState === 'error') note = 'Could not load stock. Check your connection, then refresh the page.';
   else if (!list.length) note = entries.length ? 'No stock matches these filters.' : 'No stock yet. Choose Add stock to enter the first tea.';
   $('#rows').innerHTML = note ? '<tr class="empty"><td colspan="16">' + note + '</td></tr>' : list.map(rowHtml).join('');
+  fitCells();
 }
 
 /* ---------- form ---------- */
@@ -833,9 +851,10 @@ function showView(){
   $('#btnDash').hidden = d; $('#btnBack').hidden = !d;
   $('#btnCsv').hidden = d; $('#btnAdd').hidden = d;   // these belong to the Stock List page
   $('#btnSignOut').hidden = d;   // no Sign out while on the Dashboard
-  if (d) renderDash();
+  if (d) renderDash(); else fitCells();
 }
 window.addEventListener('hashchange', showView);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitCells);
 $('#btnDash').addEventListener('click', () => { location.hash = 'dashboard'; });
 $('#btnBack').addEventListener('click', () => { location.hash = 'stock'; });
 
