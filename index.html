@@ -112,6 +112,28 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 .login input{width:100%}
 .who{display:flex;align-items:center;gap:12px;color:var(--muted)}
 
+/* dashboard */
+.dtitle{font-size:1.35rem;margin:30px 0 6px}
+.dtitle:first-child{margin-top:4px}
+.dnote{color:var(--muted);margin:0 0 12px;max-width:72ch}
+.dwrap{max-height:none}
+.dtable{min-width:1700px}
+.dtable th{text-align:center;white-space:nowrap}
+.dtable td,.ptable td{padding:4px 6px}
+.cell{display:flex;align-items:center;gap:2px}
+.cell input{flex:1;min-width:0;width:100%;background:transparent;border-color:transparent;min-height:40px;padding:6px 8px}
+.cell input:hover{border-color:var(--line)}
+.cell input:focus{background:#fcfdf8}
+.cell input.new::placeholder{color:#9c9e88}
+.rm{background:none;border:0;font:inherit;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:6px 9px;border-radius:6px;opacity:.45}
+.cell:hover .rm,.rm:focus-visible{opacity:1}
+.rm:hover{background:#ecd5cd;color:var(--danger)}
+.ptable{min-width:0;width:auto}
+.ptable th{text-align:center;white-space:nowrap}
+.ptable td.no{width:70px;text-align:center;font-weight:700}
+.ptable .cell input{width:140px}
+.ptable .gap{width:28px;min-width:28px;padding:0;background:var(--bg);border-bottom-color:transparent}
+
 @media (max-width:720px){
   .app{padding:18px 14px 28px}
   .grid{grid-template-columns:1fr}
@@ -136,9 +158,10 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div class="app" id="app" hidden>
   <header class="top">
     <h1>Tea Leaves Stock List</h1>
-    <div class="who"><span id="who"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
+    <div class="who"><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
   </header>
 
+  <div id="viewStock">
   <div class="toolbar">
     <input id="q" class="grow" type="search" placeholder="Search code, name, origin, notes" aria-label="Search stock">
     <select id="flCat" aria-label="Filter by category"></select>
@@ -175,6 +198,17 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
     </table>
   </div>
   <div class="foot">Live data, shared with everyone signed in to the team account. Use Export CSV for a spreadsheet copy.</div>
+  </div>
+
+  <section id="viewDash" hidden>
+    <h2 class="dtitle">Category List</h2>
+    <p class="dnote">Each column is the list of Sub. Category choices for that Category. Edit a name in place, type in the empty cell at the bottom of a column to add one, or use the x to remove one.</p>
+    <div class="tablewrap dwrap"><table class="dtable" id="catTable"></table></div>
+
+    <h2 class="dtitle">Place No. and Place Code</h2>
+    <p class="dnote">Place No. 1 to 90 is fixed. Change a Place Code when a box holds something else. A Place No. with no Place Code is not offered when adding stock.</p>
+    <div class="tablewrap dwrap"><table class="ptable" id="placeTable"></table></div>
+  </section>
 </div>
 
 <dialog id="dlg">
@@ -224,7 +258,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
       </div>
       <div class="field">
         <label for="fSub">Sub. Category</label>
-        <input id="fSub" autocomplete="off">
+        <select id="fSub"></select>
       </div>
       <div class="field">
         <label for="fStatus">Storage Status</label>
@@ -237,8 +271,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
       </div>
       <div class="field">
         <label for="fPlaceCode">Place Code</label>
-        <input id="fPlaceCode" autocomplete="off" placeholder="PC 1, KSR 5">
-        <div id="pcMsg" class="msg err" aria-live="polite"></div>
+        <input id="fPlaceCode" readonly placeholder="auto">
       </div>
       <div class="field">
         <label for="fOrigin">Place of Origin</label>
@@ -333,7 +366,7 @@ function computeCode(entries,prefix,thirdRaw,skipId){
 function placeCodeNorm(v){
   const t = String(v || '').trim().toUpperCase();
   if (t === '') return '';
-  const m = /^([A-Z]{2,3})\s*(\d{1,2})$/.exec(t);
+  const m = /^([A-Z]{1,3})\s*(\d{1,2})$/.exec(t);
   return m ? m[1] + ' ' + m[2] : null;
 }
 /*LOGIC_END*/
@@ -381,6 +414,7 @@ const toRow = e => ({
 let entries = [];
 let editingId = null;
 let loadState = 'loading';   // loading | ready | error
+let subCats = [], places = [], dashStale = false, listsTimer;
 
 async function reload(){
   const all = [], PAGE = 1000;
@@ -398,10 +432,11 @@ async function reload(){
 let channel = null, reloadTimer;
 function watch(){
   if (channel) return;
+  const later = fn => () => { clearTimeout(fn.t); fn.t = setTimeout(fn, 300); };
   channel = sb.channel('tea-stock-live')
-    .on('postgres_changes', {event:'*', schema:'public', table:TABLE}, () => {
-      clearTimeout(reloadTimer); reloadTimer = setTimeout(reload, 300);
-    })
+    .on('postgres_changes', {event:'*', schema:'public', table:TABLE}, later(reload))
+    .on('postgres_changes', {event:'*', schema:'public', table:'tea_sub_categories'}, later(loadLists))
+    .on('postgres_changes', {event:'*', schema:'public', table:'tea_places'}, later(loadLists))
     .subscribe();
 }
 function unwatch(){ if (channel){ sb.removeChannel(channel); channel = null; } }
@@ -411,9 +446,9 @@ async function showApp(session){
   $('#login').hidden = on; $('#app').hidden = !on;
   if (on){
     $('#who').textContent = session.user.email || '';
-    await reload(); watch(); updateImportBtn();
+    await Promise.all([reload(), loadLists()]); watch(); updateImportBtn(); showView();
   } else {
-    unwatch(); entries = []; loadState = 'loading'; render();
+    unwatch(); entries = []; subCats = []; places = []; loadState = 'loading'; render();
   }
 }
 $('#loginForm').addEventListener('submit', async ev => {
@@ -437,7 +472,6 @@ $('#flApp').innerHTML = opt('','All appearances') + Object.keys(TYPES).map(k => 
 $('#flStatus').innerHTML = opt('','All statuses') + STATUS.map(s => opt(s)).join('');
 $('#fType').innerHTML = opt('','Select') + Object.keys(TYPES).map(k => opt(k)).join('');
 $('#fCategory').innerHTML = opt('','Select') + CATS.map(c => opt(c)).join('');
-$('#fPlaceNo').innerHTML = opt('','Select') + Array.from({length:90}, (_,i) => opt(String(i+1))).join('');
 $('#fGiftable').innerHTML = GIFT.map(g => opt(g)).join('');
 $('#fStatus').innerHTML = STATUS.map(s => opt(s)).join('');
 
@@ -508,9 +542,26 @@ function refresh(){
   const m = $('#codeMsg');
   if (r.ok){ m.className = 'msg ok'; m.textContent = 'Code: ' + r.code; }
   else { m.className = 'msg' + (r.hint ? '' : ' err'); m.textContent = r.error; }
-  const pc = placeCodeNorm($('#fPlaceCode').value);
-  $('#pcMsg').textContent = pc === null ? 'Use 2 to 3 letters and 1 to 2 digits, like PC 1 or KSR 5.' : '';
-  $('#btnSave').disabled = !(r.ok && pc !== null);
+  $('#btnSave').disabled = !r.ok;
+}
+// Sub. Category choices come from the Category List on the Dashboard.
+function fillSubOptions(cat, current){
+  const names = subCats.filter(s => s.category === cat).map(s => s.name);
+  if (current && !names.includes(current)) names.push(current);   // keep an older value that is no longer listed
+  $('#fSub').innerHTML = opt('', cat ? 'Select' : 'Choose a Category first') + names.map(n => opt(n)).join('');
+  $('#fSub').disabled = !cat;
+}
+// Place No. choices: only numbers that have a Place Code (plus this item's own number when editing).
+function fillPlaceOptions(current){
+  const avail = places.filter(p => p.place_code !== '' || String(p.place_no) === String(current));
+  $('#fPlaceNo').innerHTML = opt('', 'Select') + avail.map(p => opt(String(p.place_no), p.place_code ? p.place_no + ' - ' + p.place_code : String(p.place_no))).join('');
+}
+// Place Code follows the Place No. and cannot be typed.
+function syncPlaceCode(){
+  const no = $('#fPlaceNo').value;
+  const cur = editingId ? entries.find(x => x.id === editingId) : null;
+  const p = places.find(x => String(x.place_no) === no);
+  $('#fPlaceCode').value = !no ? '' : (p && p.place_code) || (cur && String(cur.placeNo) === no ? cur.placeCode : '');
 }
 function openForm(id){
   editingId = id || null;
@@ -523,9 +574,11 @@ function openForm(id){
   $('#fYear').value = e ? e.year : '';
   $('#fName').value = e ? e.name : '';
   $('#fCategory').value = e ? e.category : '';
+  fillSubOptions($('#fCategory').value, e ? e.subCategory : '');
   $('#fSub').value = e ? e.subCategory : '';
+  fillPlaceOptions(e ? e.placeNo : '');
   $('#fPlaceNo').value = e ? e.placeNo : '';
-  $('#fPlaceCode').value = e ? e.placeCode : '';
+  syncPlaceCode();
   $('#fOrigin').value = e ? e.origin : '';
   $('#fFactory').value = e ? e.factory : '';
   $('#fDetail').value = e ? e.detail : '';
@@ -541,8 +594,7 @@ $('#form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const saveBtn = $('#btnSave');
   if (saveBtn.disabled) return;
-  const pc = placeCodeNorm($('#fPlaceCode').value);
-  if (pc === null) return;
+  const pc = $('#fPlaceCode').value;
   const fields = {
     year:val('#fYear'), name:val('#fName'), category:$('#fCategory').value, subCategory:val('#fSub'),
     placeNo:$('#fPlaceNo').value, placeCode:pc, origin:val('#fOrigin'), factory:val('#fFactory'),
@@ -583,7 +635,8 @@ $('#form').addEventListener('submit', async ev => {
 });
 ['change'].forEach(n => $('#fType').addEventListener(n, refresh));
 $('#fThird').addEventListener('input', refresh);
-$('#fPlaceCode').addEventListener('input', refresh);
+$('#fCategory').addEventListener('change', () => fillSubOptions($('#fCategory').value, ''));
+$('#fPlaceNo').addEventListener('change', syncPlaceCode);
 $('#btnAdd').addEventListener('click', () => openForm());
 $('#btnClose').addEventListener('click', () => dlg.close());
 $('#btnCancel').addEventListener('click', () => dlg.close());
@@ -639,6 +692,89 @@ $('#btnCsv').addEventListener('click', () => {
   }).join(',')).join('\r\n');
   download('tea-stock-' + today() + '.csv', '\ufeff' + csv, 'text/csv;charset=utf-8');
 });
+/* ---------- dashboard ---------- */
+async function loadLists(){
+  const [a, b] = await Promise.all([
+    sb.from('tea_sub_categories').select('id,category,name,sort_order').order('sort_order'),
+    sb.from('tea_places').select('place_no,place_code').order('place_no')
+  ]);
+  if (!a.error) subCats = a.data;
+  if (!b.error) places = b.data;
+  renderDash();
+  return !a.error && !b.error;
+}
+const typingInDash = () => $('#viewDash').contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
+function renderDash(){
+  if (typingInDash()){ dashStale = true; return; }   // do not rebuild the table under someone who is typing
+  dashStale = false;
+  const cols = CATS.map(c => subCats.filter(s => s.category === c));
+  const rows = Math.max(...cols.map(c => c.length)) + 1;
+  let h = '<thead><tr>' + CATS.map(c => {
+    const cc = CAT_COLOR[c];
+    return '<th style="background:' + cc[0] + ';color:' + cc[1] + '">' + esc(c) + '</th>';
+  }).join('') + '</tr></thead><tbody>';
+  for (let i = 0; i < rows; i++){
+    h += '<tr>' + cols.map((col, ci) => {
+      const it = col[i];
+      if (it) return '<td><div class="cell"><input value="' + esc(it.name) + '" data-id="' + esc(it.id) + '" data-name="' + esc(it.name) + '" aria-label="' + esc(CATS[ci] + ' sub category') + '">' +
+        '<button class="rm" type="button" data-rm="' + esc(it.id) + '" aria-label="Remove ' + esc(it.name) + '">&times;</button></div></td>';
+      if (i === col.length) return '<td><div class="cell"><input class="new" data-cat="' + esc(CATS[ci]) + '" placeholder="Add" aria-label="' + esc('Add a sub category to ' + CATS[ci]) + '"></div></td>';
+      return '<td></td>';
+    }).join('') + '</tr>';
+  }
+  $('#catTable').innerHTML = h + '</tbody>';
+
+  const byNo = new Map(places.map(p => [p.place_no, p.place_code]));
+  let ph = '<thead><tr>' + [0,1,2].map(g => (g ? '<th class="gap"></th>' : '') + '<th>Place No.</th><th>Place Code</th>').join('') + '</tr></thead><tbody>';
+  for (let r = 1; r <= 30; r++){
+    ph += '<tr>' + [0,1,2].map(g => {
+      const n = g * 30 + r;
+      return (g ? '<td class="gap"></td>' : '') + '<td class="no">' + n + '</td><td><div class="cell"><input data-place="' + n + '" value="' + esc(byNo.get(n) || '') + '" aria-label="Place Code for Place No. ' + n + '"></div></td>';
+    }).join('') + '</tr>';
+  }
+  $('#placeTable').innerHTML = ph + '</tbody>';
+}
+const dash = $('#viewDash');
+dash.addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') ev.target.blur(); });
+dash.addEventListener('focusout', () => setTimeout(() => { if (dashStale && !typingInDash()) renderDash(); }, 0));
+dash.addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-rm]');
+  if (!b) return;
+  const {error} = await sb.from('tea_sub_categories').delete().eq('id', b.dataset.rm);
+  if (error) toast('Could not remove. Check your connection and try again.');
+  await loadLists();
+});
+dash.addEventListener('change', async ev => {
+  const el = ev.target;
+  if (el.tagName !== 'INPUT') return;
+  const v = el.value.trim();
+  let error = null;
+  if (el.dataset.place){
+    const pc = placeCodeNorm(v);
+    if (pc === null){ toast('Use 1 to 3 letters and 1 to 2 digits, like PC 1 or KSR 5.'); el.value = el.defaultValue; return; }
+    ({error} = await sb.from('tea_places').update({place_code:pc}).eq('place_no', Number(el.dataset.place)));
+  } else if (el.dataset.id){
+    if (v === '') ({error} = await sb.from('tea_sub_categories').delete().eq('id', el.dataset.id));
+    else if (v !== el.dataset.name) ({error} = await sb.from('tea_sub_categories').update({name:v}).eq('id', el.dataset.id));
+  } else if (el.dataset.cat){
+    if (v === '') return;
+    const next = subCats.reduce((m, s) => Math.max(m, s.sort_order), 0) + 1;
+    ({error} = await sb.from('tea_sub_categories').insert({category:el.dataset.cat, name:v, sort_order:next}));
+  }
+  if (error) toast(error.code === '23505' ? 'That name is already in this column.' : 'Could not save. Check your connection and try again.');
+  await loadLists();
+});
+
+function showView(){
+  const d = location.hash === '#dashboard';
+  $('#viewStock').hidden = d; $('#viewDash').hidden = !d;
+  $('#btnDash').hidden = d; $('#btnBack').hidden = !d;
+  if (d) renderDash();
+}
+window.addEventListener('hashchange', showView);
+$('#btnDash').addEventListener('click', () => { location.hash = 'dashboard'; });
+$('#btnBack').addEventListener('click', () => { location.hash = 'stock'; });
+
 /* ---------- one-time import of the old browser-only list ---------- */
 function localItems(){
   try {

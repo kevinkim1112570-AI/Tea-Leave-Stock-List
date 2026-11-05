@@ -13,6 +13,15 @@ Sign in with the same team accounts as the Stock In/Out List. Only signed-in use
 - Export CSV downloads a spreadsheet copy of the whole list.
 - If someone used the older browser-only version, **Import from this browser** appears once after sign-in and moves that list into Supabase.
 
+## Dashboard
+
+The **Dashboard** button opens two lists that the Add Stock form uses:
+
+- **Category List**: one column per Category, listing its Sub. Category choices. Edit a name in place, type in the empty cell at the bottom of a column to add one, or use the x to remove one.
+- **Place No. and Place Code**: Place No. 1 to 90 is fixed, only the Place Code can be changed. A Place No. with no Place Code is not offered when adding stock, and the Place Code fills in by itself from the Place No.
+
+Both lists live in Supabase (`tea_sub_categories`, `tea_places`) and update live for everyone.
+
 ## Deploy to Vercel
 
 1. In Vercel, choose **Add New > Project** and import this GitHub repository.
