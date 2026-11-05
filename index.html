@@ -68,6 +68,7 @@ td.name{font-weight:600;min-width:260px;white-space:pre-wrap}
 td.wide,th.wide{min-width:240px}
 td.mid,th.mid{min-width:150px}
 td.f1{font-size:.88rem}
+td.ctr{text-align:center}
 td.f2{font-size:.76rem}
 .fitbox{width:5em;overflow:hidden;white-space:nowrap}
 .fit{display:inline-block;white-space:nowrap}
@@ -537,18 +538,18 @@ function rowHtml(e){
   return '<tr class="' + (e.status === 'In-Stock' ? '' : 'out') + '">' +
     '<td class="s1">' + esc(e.sn) + '</td>' +
     '<td class="s2 code">' + esc(e.code) + '</td>' +
-    '<td class="nw narrow f1">' + esc(t.zh) + '</td>' +
-    '<td class="f1">' + esc(e.year) + '</td>' +
-    '<td class="name">' + esc(e.name) + '</td>' +
-    '<td>' + cat + '</td>' +
+    '<td class="nw narrow f1 ctr">' + esc(t.zh) + '</td>' +
+    '<td class="f1 ctr">' + esc(e.year) + '</td>' +
+    '<td class="name ctr">' + esc(e.name) + '</td>' +
+    '<td class="ctr">' + cat + '</td>' +
     '<td class="f1"><div class="fitbox"><span class="fit">' + esc(e.subCategory) + '</span></div></td>' +
-    '<td class="strong f1">' + esc(e.placeNo) + '</td>' +
-    '<td class="nw strong f1">' + esc(e.placeCode) + '</td>' +
-    '<td class="f1">' + esc(e.origin) + '</td>' +
+    '<td class="strong f1 ctr">' + esc(e.placeNo) + '</td>' +
+    '<td class="nw strong f1 ctr">' + esc(e.placeCode) + '</td>' +
+    '<td class="f1 ctr">' + esc(e.origin) + '</td>' +
     '<td class="mid f2">' + esc(e.factory) + '</td>' +
     '<td class="wide wrap f2">' + esc(e.detail) + '</td>' +
-    '<td class="f1">' + esc(e.giftable) + '</td>' +
-    '<td><span class="chip" style="background:' + sc[0] + ';color:' + sc[1] + '">' + esc(e.status) + '</span></td>' +
+    '<td class="f1 ctr">' + esc(e.giftable) + '</td>' +
+    '<td class="ctr"><span class="chip" style="background:' + sc[0] + ';color:' + sc[1] + '">' + esc(e.status) + '</span></td>' +
     '<td class="wide wrap f2">' + esc(e.note) + '</td>' +
     '<td class="nw"><button class="lnk" type="button" data-act="edit" data-id="' + id + '">Edit</button>' +
     '<button class="lnk del" type="button" data-act="del" data-id="' + id + '">Delete</button></td>' +
