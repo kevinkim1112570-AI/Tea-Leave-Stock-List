@@ -425,6 +425,12 @@ function latestOf(entries,prefix,skipId){
 }
 function nextSn(entries){ return entries.reduce((m,e) => Math.max(m, e.sn || 0), 0) + 1; }
 
+function standalone(third){
+  const t = normThird(third);
+  if (t === '' || /^\d{2}$/.test(t)) return true;
+  const m = /^(\d)\/(\d)$/.exec(t);
+  return !!m && m[1] === m[2];
+}
 function computeCode(entries,prefix,thirdRaw,skipId){
   if (!TYPES[prefix]) return {ok:false, hint:true, error:'Choose the first part of the Code.'};
   const p = parseThird(thirdRaw);
@@ -434,7 +440,9 @@ function computeCode(entries,prefix,thirdRaw,skipId){
   else {
     const prev = latestOf(entries,prefix,skipId);
     if (!prev) return {ok:false, error:'There is no earlier ' + prefix + ' item yet. Add the first ' + prefix + ' item first.'};
-    seq = prev.seq;
+    // Share the previous number only when the previous item is itself part of a group (like 2/3).
+    // If it is a plain item (01, empty) or has equal numbers (2/2, 5/5), the new item takes the next number.
+    seq = standalone(prev.third) ? maxSeq(entries,prefix,skipId) + 1 : prev.seq;
   }
   return {ok:true, prefix, seq, third:p.value, code:buildCode(prefix,seq,p.value)};
 }
