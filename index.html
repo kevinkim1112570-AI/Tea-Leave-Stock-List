@@ -711,7 +711,7 @@ $('#adminRows').addEventListener('click', async ev => {
 /* ---------- selects ---------- */
 const opt = (v,l) => '<option value="' + esc(v) + '">' + esc(l == null ? v : l) + '</option>';
 $('#flCat').innerHTML = opt('','All categories') + CATS.map(c => opt(c)).join('');
-$('#flApp').innerHTML = opt('','All forms') + Object.keys(TYPES).map(k => opt(k, TYPES[k].zh)).join('');
+$('#flApp').innerHTML = opt('','All forms') + Object.keys(TYPES).map(k => opt(k, TYPES[k].zh + ' ' + k)).join('');
 $('#flStatus').innerHTML = opt('','All statuses') + STATUS.map(s => opt(s)).join('');
 $('#flGift').innerHTML = opt('','All giftable') + GIFT.map(g => opt(g)).join('');
 $('#fType').innerHTML = opt('','Select') + Object.keys(TYPES).map(k => opt(k)).join('');
