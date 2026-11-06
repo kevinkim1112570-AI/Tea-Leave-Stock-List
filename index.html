@@ -399,7 +399,7 @@ const TYPES = {
   TS:{zh:'散茶',en:'Loose'},
   TT:{zh:'沱茶',en:'Tuo'}
 };
-const pad3 = n => String(n).padStart(3,'0');
+const pad3 = n => (n === null || n === undefined || n === '') ? '' : String(n).padStart(3,'0');
 const normThird = raw => String(raw == null ? '' : raw).normalize('NFKC').replace(/\s+/g,'');
 const buildCode = (prefix,seq,third) => prefix + '-' + pad3(seq) + (third ? '-' + third : '');
 
