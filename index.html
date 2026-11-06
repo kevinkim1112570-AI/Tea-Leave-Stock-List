@@ -59,12 +59,15 @@ thead th{position:sticky;top:0;z-index:3;background:var(--head);white-space:nowr
 th small{display:block;font-weight:500;color:var(--muted);font-size:.82rem;margin-top:1px}
 .s1{position:sticky;left:0;z-index:2;min-width:56px;width:56px;padding-left:8px;padding-right:8px}
 .s2{position:sticky;left:56px;z-index:2;min-width:128px;padding-left:10px;padding-right:10px;border-right:1px solid var(--line)}
-thead th.s1,thead th.s2{z-index:4}
+.s3,.s4,.s5{position:sticky;z-index:2}
+.s3{left:var(--l3,184px)}.s4{left:var(--l4,264px)}.s5{left:var(--l5,344px);border-right:1px solid var(--line)}
+thead th.s1,thead th.s2,thead th.s3,thead th.s4,thead th.s5{z-index:4}
+@media (max-width:900px){.s3,.s4,.s5{position:static;border-right:0}thead th.s3,thead th.s4,thead th.s5{position:sticky;left:auto;top:0;z-index:3}}
 tbody tr:hover td{background:var(--hover)}
 tbody tr.out td{background:var(--out);color:#85857a}
 tbody tr.out:hover td{background:#dcdccf}
 td.code{font-weight:700;white-space:nowrap;letter-spacing:.02em;font-variant-numeric:tabular-nums}
-td.name{position:relative;padding-left:34px;padding-right:34px;font-weight:600;min-width:260px;white-space:pre-wrap}
+td.name{position:sticky;padding-left:34px;padding-right:34px;font-weight:600;min-width:260px;white-space:pre-wrap}
 .lnkico{position:absolute;top:4px;right:4px;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;color:var(--leaf-d);opacity:0;transition:opacity .12s}
 td.name:hover .lnkico,.lnkico:focus-visible{opacity:1}
 .lnkico:hover{background:#dfe4cb}
@@ -244,13 +247,13 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
   </div>
 
   <div class="tablewrap">
-    <table>
+    <table id="tbl">
       <thead><tr>
         <th class="s1">S.N</th>
         <th class="s2">Code</th>
-        <th class="narrow">Form</th>
-        <th>Year</th>
-        <th>Name / Brand</th>
+        <th class="narrow s3">Form</th>
+        <th class="s4">Year</th>
+        <th class="s5">Name / Brand</th>
         <th>Category</th>
         <th>Sub.<br>Category</th>
         <th>Place<br>No.</th>
@@ -743,9 +746,9 @@ function rowHtml(e){
   return '<tr class="' + (e.status === 'In-Stock' ? '' : 'out') + '">' +
     '<td class="s1">' + esc(e.sn) + '</td>' +
     '<td class="s2 code">' + esc(e.code) + '</td>' +
-    '<td class="nw narrow f1 ctr">' + esc(t.zh) + '</td>' +
-    '<td class="f1 ctr">' + esc(e.year) + '</td>' +
-    '<td class="name ctr">' + esc(e.name) + link + '</td>' +
+    '<td class="s3 nw narrow f1 ctr">' + esc(t.zh) + '</td>' +
+    '<td class="s4 f1 ctr">' + esc(e.year) + '</td>' +
+    '<td class="s5 name ctr">' + esc(e.name) + link + '</td>' +
     '<td class="ctr">' + cat + '</td>' +
     '<td class="f1"><div class="fitbox"><span class="fit">' + esc(e.subCategory) + '</span></div></td>' +
     '<td class="strong f1 ctr">' + esc(e.placeNo) + '</td>' +
@@ -786,7 +789,16 @@ function render(){
   else if (!list.length) note = entries.length ? 'No stock matches these filters.' : 'No stock yet. Choose Add stock to enter the first tea.';
   $('#rows').innerHTML = note ? '<tr class="empty"><td colspan="16">' + note + '</td></tr>' : list.map(rowHtml).join('');
   fitCells();
+  setFreeze();
 }
+function setFreeze(){
+  const ths = document.querySelectorAll('#tbl thead th');
+  if (ths.length < 5) return;
+  const t = ths[0].closest('table');
+  let left = 0;
+  [0,1,2,3].forEach(i => { left += ths[i].getBoundingClientRect().width; if (i >= 1) t.style.setProperty('--l' + (i + 2), left + 'px'); });
+}
+window.addEventListener('resize', () => setFreeze());
 
 /* ---------- form ---------- */
 const dlg = $('#dlg');
