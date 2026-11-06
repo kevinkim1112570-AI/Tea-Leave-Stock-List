@@ -762,16 +762,20 @@ function rowHtml(e){
 }
 // Sub. Category: room for 5 characters per line; longer names shrink to fit instead of wrapping.
 function fitCells(){
-  document.querySelectorAll('#rows .fitbox').forEach(box => {
-    const span = box.firstElementChild;
-    span.style.fontSize = '';
-    for (let i = 0; i < 2; i++){
-      const w = span.offsetWidth, max = box.clientWidth;
-      if (!w || w <= max) break;
+  // Batch all reads, then all writes, so the browser lays out once per pass instead of once per row.
+  const spans = Array.from(document.querySelectorAll('#rows .fitbox')).map(box => box.firstElementChild);
+  for (let i = 0; i < 2; i++){
+    const todo = [];
+    spans.forEach(span => {
+      const w = span.offsetWidth, max = span.parentElement.clientWidth;
+      if (w && w > max) todo.push([span, w, max]);
+    });
+    if (!todo.length) break;
+    todo.forEach(([span, w, max]) => {
       const cur = parseFloat(span.style.fontSize) || 100;
       span.style.fontSize = Math.max(50, Math.floor(cur * max / w)) + '%';
-    }
-  });
+    });
+  }
 }
 function render(){
   const list = entries.filter(matches).sort((a,b) => a.sn - b.sn);
@@ -943,7 +947,9 @@ function fillSubFilter(){
   sel.value = names.includes(keep) ? keep : '';
 }
 $('#flCat').addEventListener('input', () => { $('#flSub').value = ''; fillSubFilter(); });
-['q','flApp','flCat','flSub','flGift','flPlace','flStatus'].forEach(id => $('#' + id).addEventListener('input', render));
+let renderTimer;
+const renderSoon = () => { clearTimeout(renderTimer); renderTimer = setTimeout(render, 150); };
+['q','flApp','flCat','flSub','flGift','flPlace','flStatus'].forEach(id => $('#' + id).addEventListener('input', renderSoon));
 
 /* ---------- helpers ---------- */
 function ask(msg, yesLabel){
