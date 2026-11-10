@@ -177,6 +177,36 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
   .tablewrap{max-height:none}
 }
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+
+.onlyprint{display:none}
+@page{size:A4 landscape;margin:8mm}
+@media print{
+  html,body{background:#fff!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .toolbar,.robanner,.foot,#btnCsv,#btnAdd,#btnDash,#btnBack,#btnSignOut,#btnImport,dialog,.fab{display:none!important}
+  .app{padding:0!important;max-width:none!important}
+  .top{margin:0 0 6px!important;padding:0!important}
+  .top h1{font-size:15pt!important;margin:0!important}
+  .who{font-size:8pt;color:#000;gap:0!important}
+  .onlyprint{display:inline!important;font-size:8pt;margin-left:6px}
+  .onlyprint:not(:empty)::before{content:"· Printed "}
+  .tablewrap{max-height:none!important;overflow:visible!important;border:0!important;border-radius:0!important;min-height:0!important}
+  #tbl{min-width:0!important;width:100%!important;font-size:7pt!important;line-height:1.25}
+  #tbl th,#tbl td{padding:2px 3px!important;position:static!important;left:auto!important;top:auto!important;border-bottom:1px solid #bbb}
+  #tbl td.name{min-width:0!important;padding-left:3px!important;padding-right:3px!important}
+  #tbl th:last-child,#tbl td:last-child,.lnkico{display:none!important}
+  #tbl thead{display:table-header-group}
+  #tbl tr{break-inside:avoid;page-break-inside:avoid}
+  #tbl thead th{white-space:normal;font-size:7pt}
+  #tbl .chip{padding:0 4px!important;font-size:7pt!important}
+  #tbl{table-layout:fixed!important}
+  #tbl th,#tbl td{white-space:normal!important;word-break:break-word;min-width:0!important;width:auto}
+  #tbl th:nth-child(1){width:3%}#tbl th:nth-child(2){width:7%}#tbl th:nth-child(3){width:4%}#tbl th:nth-child(4){width:4%}
+  #tbl th:nth-child(5){width:16%}#tbl th:nth-child(6){width:5%}#tbl th:nth-child(7){width:7%}#tbl th:nth-child(8){width:3%}
+  #tbl th:nth-child(9){width:4%}#tbl th:nth-child(10){width:6%}#tbl th:nth-child(11){width:10%}#tbl th:nth-child(12){width:13%}
+  #tbl th:nth-child(13){width:4%}#tbl th:nth-child(14){width:5%}#tbl th:nth-child(15){width:9%}
+  #tbl .fitbox{width:auto!important}#tbl .fit{font-size:inherit!important}
+}
 </style>
 </head>
 <body>
@@ -227,7 +257,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div class="app" id="app" hidden>
   <header class="top">
     <h1>Tea Leaves Stock List</h1>
-    <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
+    <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><span id="printStamp" class="onlyprint"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
   </header>
   <div class="robanner" role="status">Your account is Read Only. You can view the list, but you cannot add, edit or delete anything. Ask an Admin if you need Edit Access.</div>
 
@@ -793,6 +823,11 @@ function render(){
   setFreeze();
   fitTableHeight();
 }
+window.addEventListener('beforeprint', () => {
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  const el = document.getElementById('printStamp');
+  if (el) el.textContent = d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+});
 function fitTableHeight(){
   const w = document.getElementById('twrap'); if (!w || !w.offsetParent) return;
   const foot = document.querySelector('.foot');
