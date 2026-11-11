@@ -119,6 +119,12 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 .msg.ok{color:var(--leaf-d);font-weight:600}
 .login .linkbtn{background:none;border:0;padding:6px;color:var(--leaf-d);font:inherit;text-decoration:underline;cursor:pointer;justify-self:center}
 .ro-dash .rm,.ro-dash .new,.ro-dash td:empty{display:none}
+.pw{position:relative}
+.pw input{padding-right:44px}
+.eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:grid;place-items:center;border:0;background:transparent;color:var(--muted);border-radius:8px;cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none}
+.eye:hover,.eye:active{color:var(--leaf-d);background:#e4e8d3}
+.rotag{display:none;font-size:33.3%;font-weight:700;color:#d32f2f;margin-left:.6em;vertical-align:baseline;letter-spacing:.02em}
+.ro .rotag{display:inline}
 .robanner{display:none;background:#ecdca0;color:#5a4a10;border:1px solid #d6c47a;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-weight:600}
 .ro .robanner{display:block}
 .ro .editonly{display:none !important}
@@ -219,8 +225,8 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
     <h1>Tea Leaves Stock List</h1>
     <p id="loginHint">Sign in with your team account.</p>
     <div><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
-    <div><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required></div>
-    <div id="lPass2Wrap" hidden><label for="lPass2">Confirm password</label><input id="lPass2" type="password" autocomplete="new-password" minlength="8"></div>
+    <div><label for="lPass">Password</label><div class="pw"><input id="lPass" type="password" autocomplete="current-password" required><button class="eye" type="button" tabindex="-1" aria-label="Press and hold to show password" title="Press and hold to show password"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+    <div id="lPass2Wrap" hidden><label for="lPass2">Confirm password</label><div class="pw"><input id="lPass2" type="password" autocomplete="new-password" minlength="8"><button class="eye" type="button" tabindex="-1" aria-label="Press and hold to show password" title="Press and hold to show password"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
     <div id="loginMsg" class="msg err" aria-live="polite"></div>
     <button class="btn primary" id="btnLogin" type="submit">Sign in</button>
     <div class="row2">
@@ -260,7 +266,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 
 <div class="app" id="app" hidden>
   <header class="top">
-    <h1>Tea Leaves Stock List</h1>
+    <h1>Tea Leaves Stock List<span class="rotag">(Read Only)</span></h1>
     <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><span id="printStamp" class="onlyprint"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
   </header>
   <div class="robanner" role="status">Your account is Read Only. You can view the list, but you cannot add, edit or delete anything. Ask an Admin if you need Edit Access.</div>
@@ -1008,6 +1014,17 @@ function fillSubFilter(){
   sel.value = names.includes(keep) ? keep : '';
 }
 $('#flCat').addEventListener('input', () => { $('#flSub').value = ''; fillSubFilter(); });
+// Eye button: password is visible only while the button is held down.
+document.querySelectorAll('.pw .eye').forEach(btn => {
+  const inp = btn.parentElement.querySelector('input');
+  const show = e => { e.preventDefault(); inp.type = 'text'; };
+  const hide = () => { inp.type = 'password'; };
+  btn.addEventListener('pointerdown', show);
+  ['pointerup','pointerleave','pointercancel','blur'].forEach(ev => btn.addEventListener(ev, hide));
+  window.addEventListener('pointerup', hide);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+});
+
 let renderTimer;
 const renderSoon = () => { clearTimeout(renderTimer); renderTimer = setTimeout(render, 150); };
 ['q','flApp','flCat','flSub','flGift','flPlace','flStatus'].forEach(id => $('#' + id).addEventListener('input', renderSoon));
