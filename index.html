@@ -257,7 +257,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div id="pending" class="login" hidden>
   <div class="box">
     <h1>Waiting for approval</h1>
-    <p>Your account <strong id="pendEmail"></strong> has been created. A team member needs to approve it before you can see the tea list.</p>
+    <p>Your account <strong id="pendEmail"></strong> has been created. Please confirm your email first (check your inbox), then press the button below.</p>
     <div id="pendMsg" class="msg" aria-live="polite"></div>
     <button class="btn primary" id="btnPendCheck" type="button">Check again</button>
     <button class="linkbtn" id="btnPendOut" type="button">Sign out</button>
@@ -605,7 +605,7 @@ function unwatch(){ if (channel){ sb.removeChannel(channel); channel = null; } }
 let signupMode = false, myRole = 'read', roNotified = false;
 function setMode(up){
   signupMode = up;
-  $('#loginHint').textContent = up ? 'Create an account. A team member will approve it before you can see the data.' : 'Sign in with your team account.';
+  $('#loginHint').textContent = up ? 'Create an account. After you confirm your email, you can view the list (Read Only).' : 'Sign in with your team account.';
   $('#lPass2Wrap').hidden = !up; $('#lPass2').required = up;
   $('#lPass').autocomplete = up ? 'new-password' : 'current-password';
   $('#lPass').minLength = up ? 8 : 0;
@@ -652,7 +652,7 @@ $('#loginForm').addEventListener('submit', async ev => {
     $('#lPass').value = ''; $('#lPass2').value = '';
     if (!data.session){   // email confirmation is switched on in Supabase
       setMode(false); msg.className = 'msg ok';
-      msg.textContent = 'Account created. Check your email to confirm it, then sign in. A team member must still approve it.';
+      msg.textContent = 'Account created. Check your email and click the confirmation link, then sign in. New accounts start as Read Only.';
     }
     return;
   }
