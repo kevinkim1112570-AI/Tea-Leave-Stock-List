@@ -150,6 +150,20 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 #toast.show{opacity:1}
 
 [hidden]{display:none !important}
+.hright{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.who2{display:flex;gap:12px;justify-content:flex-end}
+.who2 .btn{width:128px;min-height:40px;padding:6px 10px}
+#recTable{min-width:900px}
+#recTable td{vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+#recTable td.rdt{white-space:nowrap;color:var(--muted);width:170px}
+#recTable td.rem{width:250px;word-break:break-all}
+#recTable td.rac{width:190px;font-weight:600}
+#recTable td.rde{white-space:pre-wrap;word-break:break-word;line-height:1.5}
+#recTable thead th{text-align:left}
+#rwrap{max-height:calc(100vh - 260px)}
+.rdate{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.95rem}
+.rdate input{min-height:36px;padding:5px 8px;font-size:.95rem}
+#rSearch{min-width:260px}
 .signupart{display:none}
 .login.up{background:var(--bg);grid-auto-flow:column;justify-content:center;column-gap:20px}
 .login.up .signupart{display:block;width:min(42vw,600px);height:auto;pointer-events:none;-webkit-user-select:none;user-select:none}
@@ -197,7 +211,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 @media print{
   html,body{background:#fff!important}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .toolbar,.robanner,.foot,#btnCsv,#btnAdd,#btnDash,#btnBack,#btnSignOut,#btnImport,dialog,.fab{display:none!important}
+  .toolbar,.robanner,.foot,#btnCsv,#btnRec,.who2,#btnAdd,#btnDash,#btnBack,#btnSignOut,#btnImport,dialog,.fab{display:none!important}
   .app{padding:0!important;max-width:none!important}
   .top{margin:0 0 6px!important;padding:0!important}
   .top h1{font-size:15pt!important;margin:0!important}
@@ -272,7 +286,10 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div class="app" id="app" hidden>
   <header class="top">
     <h1>Tea Leaves Stock List<span class="rotag">(Read Only)</span></h1>
-    <div class="who"><button class="btn ghost" id="btnCsv" type="button">Export CSV</button><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><span id="printStamp" class="onlyprint"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
+    <div class="hright">
+      <div class="who"><button class="btn primary editonly" id="btnAdd" type="button">+ Add stock</button><button class="btn ghost" id="btnDash" type="button">Dashboard</button><button class="btn ghost" id="btnBack" type="button" hidden>Stock List</button><span id="who"></span><span id="printStamp" class="onlyprint"></span><button class="btn ghost" id="btnSignOut" type="button">Sign out</button></div>
+      <div class="who2"><button class="btn ghost" id="btnRec" type="button">Record</button><button class="btn ghost" id="btnCsv" type="button">Export CSV</button></div>
+    </div>
   </header>
   <div class="robanner" role="status">Your account is Read Only. You can view the list, but you cannot add, edit or delete anything. Ask an Admin if you need Edit Access.</div>
 
@@ -317,6 +334,23 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
   </div>
   <div class="foot">Live data, shared with everyone signed in to the team account. Use Export CSV for a spreadsheet copy.</div>
   </div>
+
+
+  <section id="viewRec" hidden>
+    <h2 class="dtitle">Stock Modification Record</h2>
+    <p class="dnote">Every add, edit, delete and change made to the stock list, places and sub categories is recorded here automatically, newest first.</p>
+    <div class="toolbar">
+      <input id="rSearch" type="search" placeholder="Search date, email, operation, details">
+      <select id="rAction"><option value="">All operations</option></select>
+      <select id="rUser"><option value="">All accounts</option></select>
+      <label class="rdate">From <input type="date" id="rFrom"></label>
+      <label class="rdate">To <input type="date" id="rTo"></label>
+      <button class="btn ghost" id="rRefresh" type="button">Refresh</button>
+      <button class="btn ghost" id="rExport" type="button">Export CSV</button>
+      <span class="count" id="rCount"></span>
+    </div>
+    <div class="tablewrap" id="rwrap"><table id="recTable"><thead><tr><th>Date</th><th>Account Email</th><th>Operation</th><th>Details</th></tr></thead><tbody id="recRows"></tbody></table></div>
+  </section>
 
   <section id="viewDash" hidden>
     <h2 class="dtitle">Category List</h2>
@@ -436,6 +470,7 @@ dialog::backdrop{background:rgba(46,42,32,.5)}
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -667,7 +702,7 @@ $('#loginForm').addEventListener('submit', async ev => {
   if (error) msg.textContent = 'Email or password is not right. Try again.';
   else $('#lPass').value = '';
 });
-$('#btnSignOut').addEventListener('click', () => sb.auth.signOut());
+$('#btnSignOut').addEventListener('click', () => { if (curView() !== 'stock') return; sb.auth.signOut(); });
 $('#btnPendOut').addEventListener('click', () => sb.auth.signOut());
 $('#btnPendCheck').addEventListener('click', async () => {
   const {data} = await sb.auth.getSession(); await showApp(data.session);
@@ -1148,18 +1183,69 @@ dash.addEventListener('change', async ev => {
   await loadLists();
 });
 
+/* ---------- Stock Modification Record ---------- */
+let recs = [];
+const p2 = n => String(n).padStart(2,'0');
+const fmtDT = iso => { const d = new Date(iso); return d.getFullYear() + '-' + p2(d.getMonth()+1) + '-' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); };
+async function loadRecords(){
+  $('#rCount').textContent = 'Loading…';
+  let all = [], from = 0;
+  for (;;){
+    const {data, error} = await sb.from('tea_stock_log').select('id,created_at,user_email,action,detail')
+      .order('created_at', {ascending:false}).order('id', {ascending:false}).range(from, from + 999);
+    if (error){ $('#rCount').textContent = 'Could not load the record: ' + error.message; return; }
+    all = all.concat(data);
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  recs = all.map(r => Object.assign({dt: fmtDT(r.created_at)}, r));
+  const fill = (sel, first, vals) => {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">' + first + '</option>' + vals.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('');
+    sel.value = vals.includes(cur) ? cur : '';
+  };
+  fill($('#rAction'), 'All operations', Array.from(new Set(recs.map(r => r.action))).sort());
+  fill($('#rUser'), 'All accounts', Array.from(new Set(recs.map(r => r.user_email))).sort());
+  renderRec();
+}
+function renderRec(){
+  const q = $('#rSearch').value.trim().toLowerCase(), ac = $('#rAction').value, us = $('#rUser').value, f = $('#rFrom').value, t = $('#rTo').value;
+  const list = recs.filter(r =>
+    (!ac || r.action === ac) && (!us || r.user_email === us) &&
+    (!f || r.dt.slice(0,10) >= f) && (!t || r.dt.slice(0,10) <= t) &&
+    (!q || (r.dt + ' ' + r.user_email + ' ' + r.action + ' ' + r.detail).toLowerCase().includes(q)));
+  const MAX = 1500, shown = list.slice(0, MAX);
+  $('#recRows').innerHTML = shown.length ? shown.map(r =>
+    '<tr><td class="rdt">' + esc(r.dt) + '</td><td class="rem">' + esc(r.user_email) + '</td><td class="rac">' + esc(r.action) + '</td><td class="rde">' + esc(r.detail) + '</td></tr>').join('')
+    : '<tr><td colspan="4" class="dim" style="padding:22px;text-align:center">No records.</td></tr>';
+  $('#rCount').textContent = list.length + ' of ' + recs.length + ' records' + (list.length > MAX ? ' (showing the newest ' + MAX + '; narrow the filters or use Export CSV)' : '');
+}
+['rSearch','rAction','rUser','rFrom','rTo'].forEach(id => $('#' + id).addEventListener('input', renderRec));
+$('#rRefresh').addEventListener('click', loadRecords);
+$('#rExport').addEventListener('click', () => {
+  if (!window.XLSX){ alert('The Excel library could not load. Check your connection and try again.'); return; }
+  const rows = [['Date','Account Email','Operation','Details']].concat(recs.map(r => [r.dt, r.user_email, r.action, r.detail.replace(/\n/g, '  |  ')]));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:20},{wch:32},{wch:24},{wch:120}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Stock Modification Record');
+  XLSX.writeFile(wb, 'stock-modification-record-' + today() + '.xlsx');
+});
+
+function curView(){ return location.hash === '#dashboard' ? 'dash' : location.hash === '#record' ? 'rec' : 'stock'; }
 function showView(){
-  const d = location.hash === '#dashboard';
-  $('#viewStock').hidden = d; $('#viewDash').hidden = !d;
-  $('#btnDash').hidden = d; $('#btnBack').hidden = !d;
-  $('#btnCsv').hidden = d; $('#btnAdd').hidden = d;   // these belong to the Stock List page
-  $('#btnSignOut').hidden = d;   // no Sign out while on the Dashboard
-  if (d) renderDash(); else fitCells();
+  const v = curView(), st = v === 'stock';
+  $('#viewStock').hidden = !st; $('#viewDash').hidden = v !== 'dash'; $('#viewRec').hidden = v !== 'rec';
+  $('#btnDash').hidden = !st; $('#btnBack').hidden = st;
+  $('#btnAdd').hidden = !st; $('.who2').hidden = !st;   // these belong to the Stock List page
+  $('#btnSignOut').hidden = !st;   // no Sign out on the Dashboard or the Record page
+  if (v === 'dash') renderDash(); else if (v === 'rec') loadRecords(); else { fitCells(); fitTableHeight(); }
 }
 window.addEventListener('hashchange', showView);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitCells);
 $('#btnDash').addEventListener('click', () => { location.hash = 'dashboard'; });
 $('#btnBack').addEventListener('click', () => { location.hash = 'stock'; });
+$('#btnRec').addEventListener('click', () => { location.hash = 'record'; });
 
 /* ---------- one-time import of the old browser-only list ---------- */
 function localItems(){
